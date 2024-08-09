@@ -459,12 +459,12 @@ function addToCluster(clusterIndex, ifile) {
 			bestVal = val;
 			bestPart = part;
 		}
-		part.classList.remove("bestPart");
+		part.classList.remove("best-part");
 	});
 	parts.forEach((part) => {
 		val = parseInt(part.textContent)
 		if (val == bestVal) {
-			part.classList.add("bestPart");
+			part.classList.add("best-part");
 		}
 	});
 
@@ -476,12 +476,12 @@ function addToCluster(clusterIndex, ifile) {
 			bestVal = val;
 			bestPart = part;
 		}
-		part.classList.remove("bestPart");
+		part.classList.remove("best-part");
 	});
 	parts.forEach((part) => {
 		val = new Date(part.textContent)
 		if (val.getTime() === bestVal.getTime()) {
-			part.classList.add("bestPart");
+			part.classList.add("best-part");
 		}
 	});
 }
