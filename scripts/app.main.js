@@ -27,7 +27,6 @@ const DOM = {
 class ImageFile {
 	static formats           = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 
-	static thumbReadLimit    = 80*1024;
 	static maxFileSize       = 40*1024*1024;
 
 	static iconDim           = 11;   // Images will be hashed into icons of this side length
@@ -88,18 +87,15 @@ class ImageFile {
 		return this.valid;
 	}
 
-	load(firstAttempt = true) {
+	load(firstAttempt=true) {
 		if (firstAttempt && Config.fastRead && this.type == "jpeg") {
 
 			this.readThumbnail((data) => {
 				if (data == null) {
 					this.load(false);
 				} else {
-
 					ImageFile.img.onload = () => {
-						this.hash   = ImageFile.getHash();
-						this.width  = ImageFile.img.width; // dimensions of thumbnail, still useful for determining aspect ratio
-						this.height = ImageFile.img.height;
+						this.hash = ImageFile.getHash();
 						URL.revokeObjectURL(ImageFile.img.src);
 						this.onload();
 					}
@@ -143,25 +139,46 @@ class ImageFile {
 	readThumbnail(callback) {
 
 		ImageFile.reader.onload = (evt) => {
-			const arr = new Uint8Array(evt.target.result);
+			const bytes = new Uint8Array(evt.target.result);
 			let lo, hi;
-			for (let i = 2; i < arr.length; i++) {
-				if (arr[i] == 0xFF) {
-					if (!lo) {
-						if (arr[i + 1] == 0xD8) {
-							lo = i;
-						}
-					} else {
-						if (arr[i + 1] == 0xD9) {
-							hi = i + 2;
-							break;
+			for (let i = 0; i < bytes.length; ) {
+				while(bytes[i] == 0xFF) i++;
+				let marker = bytes[i];  i++;
+				if (0xD0 <= marker && marker <= 0xD7) continue; // RST
+				if (marker == 0xD8) continue; // SOI
+				if (marker == 0xD9) break;    // EOI
+				if (marker == 0x01) continue; // TEM
+				if (marker == 0x00) continue; // escaped 0xFF byte
+				const len = (bytes[i]<<8) | bytes[i+1];  i+=2;
+				if (marker == 0xE1) { // APP1
+					if (bytes[i] == 0x45 && bytes[i+1] == 0x78 && bytes[i+2] == 0x69 && bytes[i+3] == 0x66 && bytes[i+4] == 0x00 && bytes[i+5] == 0x00) { // EXIF header
+						// search for embedded image
+						for (let j = i+6; j < i+len-2; j++) {
+							if (bytes[j] == 0xFF) {
+								if (!lo) {
+									if (bytes[j + 1] == 0xD8) {
+										lo = j;
+									}
+								} else {
+									if (bytes[j + 1] == 0xD9) {
+										hi = j + 2;
+										break;
+									}
+								}
+							}
 						}
 					}
 				}
+				if (marker == 0xC0) {
+					this.height = (bytes[i+1]<<8) | bytes[i+2];
+					this.width  = (bytes[i+3]<<8) | bytes[i+4];
+					break;
+				}
+				i+=len-2;
 			}
 			if (lo && hi) {
 				console.log("thumbnail read: " + this.file.name);
-				callback(new Blob([arr.subarray(lo, hi)], {type:"image/jpeg"}));
+				callback(new Blob([bytes.subarray(lo, hi)], {type:"image/jpeg"}));
 			} else {
 				callback(null);
 			}
@@ -171,7 +188,7 @@ class ImageFile {
 			callback(null);
 		}
 
-		ImageFile.reader.readAsArrayBuffer(this.file.slice(0, ImageFile.thumbReadLimit));
+		ImageFile.reader.readAsArrayBuffer(this.file.slice(0, 80*1024));
 	}
 
 	/*
@@ -342,7 +359,7 @@ class ImageFile {
 				let context = canvas.getContext("2d", { willReadFrequently: true });
 
 				img.onload =  () => {
-					this.width  = img.width; // "true" width and height are read here
+					this.width  = img.width; // guaranteed to be "true" width and height
 					this.height = img.height;
 					if (img.width >= img.height) {
 						canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
