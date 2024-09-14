@@ -362,10 +362,7 @@ function startSearch(allFiles) {
 
 	Results.filecount = allImageFiles.length;
 
-	document.getElementById("spinner").classList.add("hidden");
-	document.querySelector(".options-page").classList.add("hidden");
-	document.querySelector(".header").classList.remove("hidden");
-	allClusters.classList.remove("hidden");
+	updateUISearchStarted();
 
 	processNext(allImageFiles);
 }
@@ -380,11 +377,11 @@ function processNext(files, scannedFiles=null, n=0) {
 		return;
 	}
 	if (scannedFiles == null) {
-		updateProgress(0);
+		updateUIProgress(0);
 		scannedFiles = [];
 	}
 
-	updateProgress(n);
+	updateUIProgress(n);
 
 	let ifile = files.pop();
 
@@ -421,30 +418,167 @@ function groupTogether(ifile1, ifile2) {
 		ifile2.clusterID = Results.clusterCount;
 		Results.clusters.push([ifile1, ifile2]);
 		Results.clusterCount++;
-		createClusterDivs(Results.clusterCount - 1);
-		addToCluster(Results.clusterCount - 1, ifile2);
-		addToCluster(Results.clusterCount - 1, ifile1);
+		updateUIDuplicateFound(Results.clusterCount - 1, ifile2);
+		updateUIDuplicateFound(Results.clusterCount - 1, ifile1);
 		return;
 	}
 
 	if (typeof i === "number") {
 		Results.clusters[i].push(ifile2);
 		ifile2.clusterID = i;
-		addToCluster(i, ifile2);
+		updateUIDuplicateFound(i, ifile2);
 		return;
 	}
 
 	if (typeof j === "number") {
 		Results.clusters[j].push(ifile1);
 		ifile1.clusterID = j;
-		addToCluster(j, ifile1);
+		updateUIDuplicateFound(j, ifile1);
 		return;
 	}
 }
 
-function addToCluster(clusterIndex, ifile) {
-	const divClusterImgs = document.querySelectorAll(".cluster-imgs")[clusterIndex];
-	const divClusterInfo = document.querySelectorAll(".cluster-info")[clusterIndex];
+function createThumbnail(file, thumb, divImgDims) {
+	let reader = new FileReader();
+	reader.onload = function(evt) {
+		let img = new Image();
+		let canvas = document.createElement("canvas");
+		let context = canvas.getContext("2d", { willReadFrequently: true });
+		img.onload = function() {
+			divImgDims.textContent = "".concat(img.width, "×", img.height);
+			if (img.width >= img.height) {
+				canvas.height = Config.thumbnailMaxDim * 2;
+				canvas.width = Math.floor(img.width * canvas.height / img.height);
+			} else {
+				canvas.width = Config.thumbnailMaxDim * 2;
+				canvas.height = Math.floor(img.height * canvas.width / img.width);
+			}
+			thumb.width = canvas.width / 2;
+			thumb.height = canvas.height / 2;
+			context.drawImage(img, 0, 0, canvas.width, canvas.height);
+			thumb.src = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
+			canvas  = null;
+			context = null;
+			img     = null;
+			reader  = null;
+		};
+		img.src = evt.target.result; // TODO slow
+	};
+	reader.readAsDataURL(file);
+}
+
+
+
+
+
+
+
+
+
+
+function filePicker() {
+	updateUISearchPending();
+	document.getElementById("input-files").click();
+}
+
+function copyToClipboard(text) {
+	navigator.clipboard.writeText(text);
+	document.getElementById("message").textContent = "Copied to clipboard!";
+	document.getElementById("message").classList.remove("hidden");
+	setTimeout(function() {
+		document.getElementById("message").classList.add("hidden");
+	}, 1000);
+}
+
+function updateText(element, text) {
+	document.querySelector(element).textContent = text;
+}
+
+function createChildDiv(className, parent) {
+	const element = document.createElement("div");
+	element.className = className;
+	parent.appendChild(element);
+	return element;
+}
+
+function createChildSpan(className, parent) {
+	const element = document.createElement("span");
+	element.className = className;
+	parent.appendChild(element);
+	return element;
+}
+
+function formatDate(d){
+	return d.getFullYear() + "." + (d.getMonth()+1).toString().padStart(2, "0") + "." + d.getDate().toString().padStart(2, "0");
+}
+
+function updateLocalStorage() {
+	localStorage.setItem("fast-option", document.getElementById("fast-option").checked);
+	return;
+}
+
+function updateUIOptions() {
+	if (localStorage.getItem("fast-option") == null) {
+		document.getElementById("fast-option").checked = true;
+		return;
+	}
+	if (localStorage.getItem("fast-option") == "false") {
+		document.getElementById("fast-option").checked = false;
+	} else {
+		document.getElementById("fast-option").checked = true;
+	}
+	return;
+}
+
+function clickCheckbox(event) {
+	if (event.target.tagName != 'INPUT') {
+		document.getElementById('fast-option').click();
+	}
+}
+
+function updateUISearchPending() {
+	setTimeout(() => {
+		document.getElementById("cancel-button").classList.remove("hidden");
+		document.getElementById("select-button").classList.add("hidden");
+		document.getElementById("spinner").classList.remove("hidden");
+	}, 500); // start after the file picker is displayed
+}
+
+function updateUISearchStarted() {
+	document.getElementById("spinner").classList.add("hidden");
+	document.querySelector(".options-page").classList.add("hidden");
+	document.querySelector(".header").classList.remove("hidden");
+	allClusters.classList.remove("hidden");
+}
+
+function updateUIProgress(n) {
+	let s = "s";
+	if (Results.clusterCount == 1) {
+		s = "";
+	}
+	updateText(".progress-text", "Please wait... Reading file ".concat(n, " of ", Results.filecount, ". Found ", Results.clusterCount, " cluster", s, " so far."));
+	let pct = Math.floor(100 * n / Results.filecount);
+	if (pct < 5) {
+		pct = 5;
+	}
+	progressBar.style.width = "".concat(pct, "%");
+}
+
+function updateUIDuplicateFound(clusterIndex, ifile) {
+	let divClusterImgs = document.querySelectorAll(".cluster-imgs")[clusterIndex];
+	let divClusterInfo = document.querySelectorAll(".cluster-info")[clusterIndex];
+
+	if (divClusterImgs === undefined) {
+		const a = createChildDiv("cluster", allClusters);
+		const b = createChildDiv("cluster-num", a);
+		b.textContent = ifile.clusterID + 1;
+		const c = createChildDiv("cluster-content", a);
+		divClusterImgs = createChildDiv("cluster-imgs", c);
+		divClusterInfo = createChildDiv("cluster-info", c);
+		b.addEventListener("click", () => {
+			c.classList.toggle("hidden");
+		});
+	}
 
 	const divImg = createChildDiv("div-img", divClusterImgs);
 	const thumb = new Image();
@@ -579,122 +713,8 @@ function addToCluster(clusterIndex, ifile) {
 	});
 }
 
-function createThumbnail(file, thumb, divImgDims) {
-	let reader = new FileReader();
-	reader.onload = function(evt) {
-		let img = new Image();
-		let canvas = document.createElement("canvas");
-		let context = canvas.getContext("2d", { willReadFrequently: true });
-		img.onload = function() {
-			divImgDims.textContent = "".concat(img.width, "×", img.height);
-			if (img.width >= img.height) {
-				canvas.height = Config.thumbnailMaxDim * 2;
-				canvas.width = Math.floor(img.width * canvas.height / img.height);
-			} else {
-				canvas.width = Config.thumbnailMaxDim * 2;
-				canvas.height = Math.floor(img.height * canvas.width / img.width);
-			}
-			thumb.width = canvas.width / 2;
-			thumb.height = canvas.height / 2;
-			context.drawImage(img, 0, 0, canvas.width, canvas.height);
-			thumb.src = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
-			canvas  = null;
-			context = null;
-			img     = null;
-			reader  = null;
-		};
-		img.src = evt.target.result; // TODO slow
-	};
-	reader.readAsDataURL(file);
-}
-
-
-
-
-
-
-
-
-
-
-
-function copyToClipboard(text) {
-	navigator.clipboard.writeText(text);
-	document.getElementById("message").textContent = "Copied to clipboard!";
-	document.getElementById("message").style.display = "block";
-	setTimeout(function() {
-		document.getElementById("message").style.display = "none";
-	}, 1000);
-}
-
-function updateText(element, text) {
-	document.querySelector(element).textContent = text;
-}
-
-function createChildDiv(className, parent) {
-	const element = document.createElement("div");
-	element.className = className;
-	parent.appendChild(element);
-	return element;
-}
-
-function createChildSpan(className, parent) {
-	const element = document.createElement("span");
-	element.className = className;
-	parent.appendChild(element);
-	return element;
-}
-
-function formatDate(d){
-	return d.getFullYear() + "." + (d.getMonth()+1).toString().padStart(2, "0") + "." + d.getDate().toString().padStart(2, "0");
-}
-
-function createClusterDivs(clusterIndex) {
-	const a = createChildDiv("cluster", allClusters);
-	const b = createChildDiv("cluster-num", a);
-	b.textContent = clusterIndex + 1;
-	const c = createChildDiv("cluster-content", a);
-	createChildDiv("cluster-imgs", c);
-	createChildDiv("cluster-info", c);
-	b.addEventListener("click", () => {
-		c.classList.toggle("hidden");
-	});
-}
-
-function updateLocalStorage() {
-	localStorage.setItem("fast-option", document.getElementById("fast-option").checked);
-	return;
-}
-
-function updateUIOptions() {
-	if (localStorage.getItem("fast-option") == null) {
-		document.getElementById("fast-option").checked = true;
-		return;
-	}
-	if (localStorage.getItem("fast-option") == "false") {
-		document.getElementById("fast-option").checked = false;
-	} else {
-		document.getElementById("fast-option").checked = true;
-	}
-	return;
-}
-
-function clickCheckbox(event) {
-	if (event.target.tagName != 'INPUT') {
-		document.getElementById('fast-option').click();
-	}
-}
-
-function updateUISearchPending() {
-	setTimeout(() => {
-		document.getElementById("cancel-button").classList.remove("hidden");
-		document.getElementById("select-button").classList.add("hidden");
-		document.getElementById("spinner").classList.remove("hidden");
-	}, 500); // start after the file picker is displayed
-}
-
 function updateUISearchDone() {
-	document.getElementById("button-pause-search").style.display = "none";
+	document.getElementById("button-pause-search").classList.add("hidden");
 	const progress = document.querySelector(".progress");
 	progress.removeChild(progress.querySelector(".progress-bar"));
 	let s = "s", s2 = "s";
@@ -712,23 +732,23 @@ function updateUISearchDone() {
 		} else {
 			document.getElementById("message").textContent = "No duplicates found.";
 		}
-		document.getElementById("message").style.display = "block";
-		allClusters.style.display = "none";
+		document.getElementById("message").classList.remove("hidden");
+		allClusters.classList.add("hidden");
 	}
 	return;
 }
 
-function updateProgress(n) {
-	let s = "s";
-	if (Results.clusterCount == 1) {
-		s = "";
+function togglePause() {
+	State.pause = !State.pause;
+	if (document.getElementById("button-pause-search").textContent == "Pause") {
+		document.getElementById("button-pause-search").textContent = "Resume";
+	} else {
+		document.getElementById("button-pause-search").textContent = "Pause";
 	}
-	updateText(".progress-text", "Please wait... Reading file ".concat(n, " of ", Results.filecount, ". Found ", Results.clusterCount, " cluster", s, " so far."));
-	let pct = Math.floor(100 * n / Results.filecount);
-	if (pct < 5) {
-		pct = 5;
-	}
-	progressBar.style.width = "".concat(pct, "%");
+}
+
+function reloadPage() {
+	location.reload();
 }
 
 function showAllList() {
@@ -795,24 +815,6 @@ function downloadList() {
 	}
 }
 
-function togglePause() {
-	State.pause = !State.pause;
-	if (document.getElementById("button-pause-search").textContent == "Pause") {
-		document.getElementById("button-pause-search").textContent = "Resume";
-	} else {
-		document.getElementById("button-pause-search").textContent = "Pause";
-	}
-}
-
-function reloadPage() {
-	location.reload();
-}
-
-function filePicker() {
-	updateUISearchPending();
-	document.getElementById("input-files").click();
-}
-
 document.getElementById("input-files").onchange = (event) => {
 	try {
 		startSearch(event.target.files);
@@ -876,11 +878,11 @@ document.addEventListener("keydown", (event) => {
 	}
 });
 
-document.addEventListener('mousedown', () => {
+document.addEventListener("mousedown", () => {
 	State.isMouseDown = true;
 });
 
-document.addEventListener('mouseup', () => {
+document.addEventListener("mouseup", () => {
 	State.isMouseDown = false;
 	State.highlightDirection = "";
 });
@@ -890,9 +892,7 @@ window.addEventListener("DOMContentLoaded", () => {
 	window.scrollTo({top: 0});
 
 	document.getElementById("input-files").addEventListener("cancel", () => {
-		document.getElementById("cancel-button").classList.add("hidden");
-		document.getElementById("select-button").classList.remove("hidden");
-		document.getElementById("spinner").classList.add("hidden");
+		reloadPage();
 	});
 
 	document.getElementById("select-button").textContent = "Select folder";
