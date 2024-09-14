@@ -362,9 +362,10 @@ function startSearch(allFiles) {
 
 	Results.filecount = allImageFiles.length;
 
-	document.querySelector(".options-page").style.display = "none";
-	document.querySelector(".header").style.display = "block";
-	allClusters.style.display = "block";
+	document.getElementById("spinner").classList.add("hidden");
+	document.querySelector(".options-page").classList.add("hidden");
+	document.querySelector(".header").classList.remove("hidden");
+	allClusters.classList.remove("hidden");
 
 	processNext(allImageFiles);
 }
@@ -686,9 +687,10 @@ function clickCheckbox(event) {
 
 function updateUISearchPending() {
 	setTimeout(() => {
-		document.getElementById("cancel-button").style.display = "inline-block";
-		document.getElementById("select-button").style.display = "none";
-	}, 500);
+		document.getElementById("cancel-button").classList.remove("hidden");
+		document.getElementById("select-button").classList.add("hidden");
+		document.getElementById("spinner").classList.remove("hidden");
+	}, 500); // start after the file picker is displayed
 }
 
 function updateUISearchDone() {
@@ -888,8 +890,9 @@ window.addEventListener("DOMContentLoaded", () => {
 	window.scrollTo({top: 0});
 
 	document.getElementById("input-files").addEventListener("cancel", () => {
-		document.getElementById("cancel-button").style.display = "none";
-		document.getElementById("select-button").style.display = "inline-block";
+		document.getElementById("cancel-button").classList.add("hidden");
+		document.getElementById("select-button").classList.remove("hidden");
+		document.getElementById("spinner").classList.add("hidden");
 	});
 
 	document.getElementById("select-button").textContent = "Select folder";
