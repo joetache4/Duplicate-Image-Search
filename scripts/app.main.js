@@ -112,29 +112,21 @@ class ImageFile {
 			});
 		} else {
 
-			ImageFile.reader.onload = (evt) => {
-
-				ImageFile.img.onload = () => {
-					this.hash   = ImageFile.getHash();
-					this.width  = ImageFile.img.width;
-					this.height = ImageFile.img.height;
-					this.onload();
-				}
-
-				ImageFile.img.onerror = () => {
-					this.valid = false;
-					this.onerror();
-				}
-
-				ImageFile.img.src = evt.target.result; // slow
+			ImageFile.img.onload = () => {
+				this.hash   = ImageFile.getHash();
+				this.width  = ImageFile.img.width;
+				this.height = ImageFile.img.height;
+				URL.revokeObjectURL(ImageFile.img.src);
+				this.onload();
 			}
 
-			ImageFile.reader.onerror = () => {
+			ImageFile.img.onerror = () => {
 				this.valid = false;
+				URL.revokeObjectURL(ImageFile.img.src);
 				this.onerror();
 			}
 
-			ImageFile.reader.readAsDataURL(this.file);
+			ImageFile.img.src = URL.createObjectURL(this.file); // slow
 		}
 	}
 
@@ -355,39 +347,35 @@ class ImageFile {
 
 	async createThumbnail() {
 		return new Promise( (resolve, reject) => {
-			let reader = new FileReader();
 
-			reader.onload =  (event) => {
-				let img = new Image();
-				let canvas = document.createElement("canvas");
-				let context = canvas.getContext("2d", { willReadFrequently: true });
+			let img = new Image();
+			let canvas = document.createElement("canvas");
+			let context = canvas.getContext("2d", { willReadFrequently: true });
 
-				img.onload =  () => {
-					if (img.width >= img.height) {
-						canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
-						canvas.width = Math.floor(img.width * canvas.height / img.height);
-					} else {
-						canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
-						canvas.height = Math.floor(img.height * canvas.width / img.width);
-					}
-					context.drawImage(img, 0, 0, canvas.width, canvas.height);
-					this.thumbdata = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
-
-					canvas  = null;
-					context = null;
-					img     = null;
-					reader  = null;
-
-					resolve();
+			img.onload =  () => {
+				if (img.width >= img.height) {
+					canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
+					canvas.width = Math.floor(img.width * canvas.height / img.height);
+				} else {
+					canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
+					canvas.height = Math.floor(img.height * canvas.width / img.width);
 				}
+				context.drawImage(img, 0, 0, canvas.width, canvas.height);
+				this.thumbdata = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
 
-				img.src = event.target.result; // slow
+				URL.revokeObjectURL(img.src);
+
+				canvas  = null;
+				context = null;
+				img     = null;
+
+				resolve();
 			}
 
 			if (this.thumbStart && this.thumbEnd)
-				reader.readAsDataURL(this.file.slice(this.thumbStart, this.thumbEnd));
+				img.src = URL.createObjectURL(this.file.slice(this.thumbStart, this.thumbEnd));
 			else
-				reader.readAsDataURL(this.file);
+				img.src = URL.createObjectURL(this.file); // slow
 		});
 	}
 }
