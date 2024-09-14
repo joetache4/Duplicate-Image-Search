@@ -733,9 +733,7 @@ function togglePause() {
 }
 
 function reloadPage() {
-	if (!Results.highlighted || window.confirm("Are you sure? Your highlighted selections will be reset.")) {
-		location.reload();
-	}
+	location.reload();
 }
 
 window.addEventListener("DOMContentLoaded", () => {
