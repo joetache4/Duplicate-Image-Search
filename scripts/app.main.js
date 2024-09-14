@@ -331,6 +331,43 @@ class ImageFile {
 
 		return true;
 	}
+
+	async createThumbnail() {
+		return new Promise( (resolve, reject) => {
+			let reader = new FileReader();
+
+			reader.onload =  (event) => {
+				let img = new Image();
+				let canvas = document.createElement("canvas");
+				let context = canvas.getContext("2d", { willReadFrequently: true });
+
+				img.onload =  () => {
+					this.width  = img.width; // "true" width and height are read here
+					this.height = img.height;
+					if (img.width >= img.height) {
+						canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
+						canvas.width = Math.floor(img.width * canvas.height / img.height);
+					} else {
+						canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
+						canvas.height = Math.floor(img.height * canvas.width / img.width);
+					}
+					context.drawImage(img, 0, 0, canvas.width, canvas.height);
+					this.thumbdata = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
+
+					canvas  = null;
+					context = null;
+					img     = null;
+					reader  = null;
+
+					resolve();
+				}
+
+				img.src = event.target.result; // slow
+			}
+
+			reader.readAsDataURL(this.file);
+		});
+	}
 }
 
 
@@ -411,58 +448,35 @@ function groupTogether(ifile1, ifile2) {
 	const i = ifile1.clusterID;
 	const j = ifile2.clusterID;
 
+	let send1 = false, send2 = false;
+
 	if (i == null && j == null) {
 		ifile1.clusterID = Results.clusterCount;
 		ifile2.clusterID = Results.clusterCount;
 		Results.clusters.push([ifile1, ifile2]);
 		Results.clusterCount++;
-		updateUIDuplicateFound(ifile2);
-		updateUIDuplicateFound(ifile1);
-		return;
+		send1 = true;
+		send2 = true;
 	}
 
 	if (typeof i === "number") {
 		Results.clusters[i].push(ifile2);
 		ifile2.clusterID = i;
-		updateUIDuplicateFound(ifile2);
-		return;
+		send2 = true;
 	}
 
 	if (typeof j === "number") {
 		Results.clusters[j].push(ifile1);
 		ifile1.clusterID = j;
-		updateUIDuplicateFound(ifile1);
-		return;
+		send1 = true;
 	}
-}
 
-function createThumbnail(file, thumb, divImgDims) {
-	let reader = new FileReader();
-	reader.onload = function(evt) {
-		let img = new Image();
-		let canvas = document.createElement("canvas");
-		let context = canvas.getContext("2d", { willReadFrequently: true });
-		img.onload = function() {
-			divImgDims.textContent = "".concat(img.width, "×", img.height); // "true" width and height are read here
-			if (img.width >= img.height) {
-				canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
-				canvas.width = Math.floor(img.width * canvas.height / img.height);
-			} else {
-				canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
-				canvas.height = Math.floor(img.height * canvas.width / img.width);
-			}
-			thumb.width = canvas.width / Config.thumbnailOversample;
-			thumb.height = canvas.height / Config.thumbnailOversample;
-			context.drawImage(img, 0, 0, canvas.width, canvas.height);
-			thumb.src = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
-			canvas  = null;
-			context = null;
-			img     = null;
-			reader  = null;
-		};
-		img.src = evt.target.result; // slow
-	};
-	reader.readAsDataURL(file);
+	if (send2) {
+		updateUIDuplicateFound(ifile2);
+	}
+	if (send1) {
+		updateUIDuplicateFound(ifile1);
+	}
 }
 
 
@@ -584,7 +598,17 @@ function updateUIDuplicateFound(ifile) {
 	const divImgDims = createChildDiv("image-dims", divImg);
 	divImg.ondragstart = function() { return false; };
 
-	createThumbnail(ifile.file, thumb, divImgDims);
+	ifile.createThumbnail().then(() => {
+		divImgDims.textContent = "".concat(ifile.width, "×", ifile.height);
+		thumb.classList.add("hidden");
+		thumb.src = ifile.thumbdata;
+		thumb.onload = () => {
+			thumb.width = thumb.width / Config.thumbnailOversample;
+			thumb.height = thumb.height / Config.thumbnailOversample;
+			thumb.classList.remove("hidden");
+			ifile.thumbdata = null;
+		}
+	});
 
 	const divImgInfo = createChildDiv("img-info", divClusterInfo);
 	const divImgSize = createChildSpan("img-info-part size", divImgInfo);
