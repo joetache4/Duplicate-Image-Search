@@ -572,6 +572,9 @@ function createClusterDivs(clusterIndex) {
 	const c = createChildDiv("cluster-content", a);
 	createChildDiv("cluster-imgs", c);
 	createChildDiv("cluster-info", c);
+	b.addEventListener("click", () => {
+		c.classList.toggle("hidden");
+	});
 }
 
 function checkBrowser() {
