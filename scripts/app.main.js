@@ -355,9 +355,7 @@ function startSearch(allFiles) {
 		}
 	});
 	allImageFiles.sort((a,b) => {
-		const d = a.depth - b.depth;
-		if (d) return -d;
-		return -a.relpath.localeCompare(b.relpath); // negative b/c items will be popped from the back
+		return -PathSort.compare(a.relpath, b.relpath); // negative b/c items will be popped from the back
 	});
 
 	Results.filecount = allImageFiles.length;
