@@ -71,6 +71,8 @@ class ImageFile {
 		this.height     = null;
 		this.hash       = null;
 		this.clusterID  = null;
+		this.thumbStart = null;
+		this.thumbEnd   = null;
 
 		// type is "" for dropped files inside folders
 		const i = file.name.lastIndexOf(".");
@@ -178,6 +180,8 @@ class ImageFile {
 			}
 			if (lo && hi) {
 				console.log("thumbnail read: " + this.file.name);
+				this.thumbStart = lo;
+				this.thumbEnd   = hi;
 				callback(new Blob([bytes.subarray(lo, hi)], {type:"image/jpeg"}));
 			} else {
 				callback(null);
@@ -359,8 +363,6 @@ class ImageFile {
 				let context = canvas.getContext("2d", { willReadFrequently: true });
 
 				img.onload =  () => {
-					this.width  = img.width; // guaranteed to be "true" width and height
-					this.height = img.height;
 					if (img.width >= img.height) {
 						canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
 						canvas.width = Math.floor(img.width * canvas.height / img.height);
@@ -382,7 +384,10 @@ class ImageFile {
 				img.src = event.target.result; // slow
 			}
 
-			reader.readAsDataURL(this.file);
+			if (this.thumbStart && this.thumbEnd)
+				reader.readAsDataURL(this.file.slice(this.thumbStart, this.thumbEnd));
+			else
+				reader.readAsDataURL(this.file);
 		});
 	}
 }
