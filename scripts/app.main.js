@@ -17,7 +17,7 @@ const Results = {
 };
 
 class ImageFile {
-	static formats           = ["image/jpg", "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"];
+	static formats           = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 
 	static thumbReadLimit    = 80*1024;
 	static maxFileSize       = 40*1024*1024;
@@ -57,22 +57,30 @@ class ImageFile {
 
 	constructor(file) {
 		this.file       = file;
+		this.type       = null;
 		this.val        = null;
 		this.width      = null;
 		this.height     = null;
 		this.icon       = null;
 		this.clusterID  = null;
+
+		// drag-and-dropped files don't get a type for some reason
+		const i = file.name.lastIndexOf(".");
+		this.type = i == -1 ? "" : file.name.substring(i+1);
+		if (this.type === "jpg") {
+			this.type = "jpeg";
+		}
 	}
 
 	valid() {
 		if (this.val === null) {
-			this.val = ImageFile.formats.includes(this.file.type) && this.file.size <= ImageFile.maxFileSize;
+			this.val = ImageFile.formats.includes(this.type) && this.file.size <= ImageFile.maxFileSize;
 		}
 		return this.val;
 	}
 
 	load(firstAttempt = true) {
-		if (firstAttempt && Config.fastRead && this.file.type == "image/jpeg") {
+		if (firstAttempt && Config.fastRead && this.type == "jpeg") {
 
 			this.readThumbnail(function(data) {
 				if (data == null) {
@@ -418,7 +426,7 @@ function addToCluster(clusterIndex, ifile) {
 	const divImg = createChildDiv("div-img", divClusterImgs);
 	const thumb = new Image();
 	thumb.classList.add("cluster-img");
-	thumb.title = ifile.file.webkitRelativePath;
+	thumb.title = ifile.file.webkitRelativePath || ifile.file.name; // webkitRelativePath is "" for dragged-on files
 	divImg.appendChild(thumb);
 	const divImgDims = createChildDiv("image-dims", divImg);
 	createThumbnail(ifile.file, thumb, divImgDims);
@@ -429,7 +437,7 @@ function addToCluster(clusterIndex, ifile) {
 	const divImgPath = createChildSpan("img-info-part path", divImgInfo);
 	divImgSize.textContent = parseInt(ifile.file.size/1024);
 	divImgDate.textContent = formatDate(new Date(ifile.file.lastModified));
-	divImgPath.textContent = ifile.file.webkitRelativePath;
+	divImgPath.textContent = ifile.file.webkitRelativePath || ifile.file.name;
 
 	// alphabetize images by path name
 	tmp = Array.from(divClusterImgs.children)
@@ -440,7 +448,7 @@ function addToCluster(clusterIndex, ifile) {
 	});
 	divClusterImgs.innerHTML = "";
 	tmp.forEach(child => divClusterImgs.appendChild(child));
-	
+
 	// alphabetize path names
 	tmp = Array.from(divClusterInfo.children)
 	tmp.sort((a,b) => {
@@ -682,7 +690,7 @@ function showAllList() {
 	let text = "";
 	for (let cluster of Results.clusters) {
 		for (let ifile of cluster) {
-			text = text.concat(ifile.file.webkitRelativePath, "\n");
+			text = text.concat(ifile.file.webkitRelativePath || ifile.file.name, "\n");
 		}
 		text = text.concat("\n");
 	}
@@ -769,4 +777,134 @@ window.addEventListener("DOMContentLoaded", () => {
 		document.getElementById("cancel-button").style.display = "none";
 		document.getElementById("file-selector").style.display = "inline-block";
 	});
+
+	const supportsDirs = typeof DataTransferItem != 'undefined' && 'webkitGetAsEntry' in DataTransferItem.prototype;
+	const dropzone = document.getElementById("dropzone");
+
+	dropzone.addEventListener("dragover", (e) => {
+		e.preventDefault();
+	});
+
+	dropzone.addEventListener('drop', (ev) => {
+		ev.preventDefault();
+		const tf = ev.dataTransfer;
+		if (!tf.files.length) {
+			return;
+		} else {
+			if (supportsDirs) {
+				let outFiles = [];
+				let lft = tf.items.length;
+				let errored = false;
+				const onErr = (err) => {
+					if (!errored) {
+						errored = true;
+						console.log(err);
+					}
+				}
+				const onDone = (f) => {
+					outFiles = outFiles.concat(f);
+					if (!--lft && !errored) {
+						startSearch(outFiles);
+					}
+				};
+				for (let i = 0; i < tf.items.length; ++i) {
+					const entry = tf.items[i].webkitGetAsEntry();
+					if (entry.isFile) {
+						entry.file(f => onDone([f]), onErr);
+					}
+					else {
+						readRecurse(entry, onDone, onErr);
+					}
+				}
+			} else {
+				alert("This browser does not support folder drag-and-drop!");
+			}
+		}
+	});
+
+	const readRecurse = (dir, onComplete, onError) => {
+		let files = [];
+		let total = 0;
+		let errored = false;
+		let reachedEnd = false;
+		const onErr = (err) => {
+			if (!errored) {
+				errored = true;
+				onError(err);
+			}
+		};
+		const onDone = (f) => {
+			files = files.concat(f);
+			if (!--total && reachedEnd) {
+				onComplete(files);
+			}
+		};
+		const reader = dir.createReader();
+		const onRead = (entries) => {
+			if (!entries.length && !errored) {
+				if (!total) {
+					onComplete(files);
+				}
+				else {
+					reachedEnd = true;
+				}
+			} else reader.readEntries(onRead, onError);
+			for (const entry of entries) {
+				++total;
+				if (entry.isFile) {
+					entry.file(f => onDone([f]), onErr);
+				}
+				else {
+					readRecurse(entry, onDone, onErr);
+				}
+			}
+		};
+		reader.readEntries(onRead, onError);
+	}
+
+	/*
+	dropzone.addEventListener("drop", (ev) => {
+		ev.preventDefault();
+		const tf = ev.dataTransfer;
+		if (!tf.files.length) {
+			return;
+		} else {
+			if (supportsDirs) {
+				let outFiles = [];
+
+				let count = 0;
+				acceptFiles = (entries) => {
+					count += entries.length;
+					for (const entry of entries) {
+						try {
+							if (entry.isFile) {
+								entry.file(f => outFiles.push(f)); // TODO f.type == ""
+								count--;
+							} else {
+								const reader = entry.createReader();
+								const onRead = (moreEntries) => {
+									acceptFiles(moreEntries);
+									count--;
+								};
+								reader.readEntries(acceptFiles);
+							}
+						} catch {
+							console.log("error reading file " + entry.name);
+						}
+					}
+					if (count == 0) {
+						console.log(outFiles);
+						startSearch(outFiles);
+					}
+				}
+
+				console.log("drag");
+				acceptFiles(Array.from(tf.items).map(e => e.webkitGetAsEntry()));
+
+			} else {
+				alert("This browser does not support folder drag-and-drop!");
+			}
+		}
+	});
+	*/
 });
