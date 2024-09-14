@@ -431,6 +431,26 @@ function addToCluster(clusterIndex, ifile) {
 	divImgDate.textContent = formatDate(new Date(ifile.file.lastModified));
 	divImgPath.textContent = ifile.file.webkitRelativePath;
 
+	// alphabetize images by path name
+	tmp = Array.from(divClusterImgs.children)
+	tmp.sort((a,b) => {
+		textA = a.children[0].title;
+		textB = b.children[0].title;
+		return textA.localeCompare(textB);
+	});
+	divClusterImgs.innerHTML = "";
+	tmp.forEach(child => divClusterImgs.appendChild(child));
+	
+	// alphabetize path names
+	tmp = Array.from(divClusterInfo.children)
+	tmp.sort((a,b) => {
+		textA = a.querySelector(".path").textContent;
+		textB = b.querySelector(".path").textContent;
+		return textA.localeCompare(textB);
+	});
+	divClusterInfo.innerHTML = "";
+	tmp.forEach(child => divClusterInfo.appendChild(child));
+
 	hoverFunc = () => {
 		divImgInfo.classList.toggle("hovered");
 		divImg.classList.toggle("hovered");
