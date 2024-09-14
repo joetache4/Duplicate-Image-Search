@@ -455,21 +455,25 @@ function addToCluster(clusterIndex, ifile) {
 		divImgInfo.classList.toggle("hovered");
 		divImg.classList.toggle("hovered");
 	}
-	highlightFunc = () => {
-		divImgInfo.classList.toggle("highlighted");
-		divImg.classList.toggle("highlighted");
-		if (divImgInfo.classList.contains("highlighted")) {
-			Results.highlighted++;
+	clickFunc = () => {
+		if (event.ctrlKey) {
+			copyToClipboard(ifile.file.name);
 		} else {
-			Results.highlighted--;
+			divImgInfo.classList.toggle("highlighted");
+			divImg.classList.toggle("highlighted");
+			if (divImgInfo.classList.contains("highlighted")) {
+				Results.highlighted++;
+			} else {
+				Results.highlighted--;
+			}
 		}
 	}
 	divImgInfo.addEventListener("mouseover", hoverFunc);
 	divImg.addEventListener("mouseover", hoverFunc);
 	divImgInfo.addEventListener("mouseout", hoverFunc);
 	divImg.addEventListener("mouseout", hoverFunc);
-	divImgInfo.addEventListener("click", highlightFunc);
-	divImg.addEventListener("click", highlightFunc);
+	divImgInfo.addEventListener("click", clickFunc);
+	divImg.addEventListener("click", clickFunc);
 
 	let parts = divClusterInfo.querySelectorAll(".img-info-part.size");
 	let bestPart = null, bestVal = 0, val = null;
@@ -549,6 +553,17 @@ function createThumbnail(file, thumb, divImgDims) {
 
 
 
+
+
+
+function copyToClipboard(text) {
+	navigator.clipboard.writeText(text);
+	document.getElementById("message").textContent = "Copied to clipboard!";
+	document.getElementById("message").style.display = "block";
+	setTimeout(function() {
+		document.getElementById("message").style.display = "none";
+	}, 1000);
+}
 
 function updateText(element, text) {
 	document.querySelector(element).textContent = text;
@@ -703,13 +718,7 @@ function toggleList() {
 }
 
 function copyListToClipboard() {
-	const text = document.querySelector(".textarea").value;
-	navigator.clipboard.writeText(text);
-	document.getElementById("message").textContent = "Copied to clipboard!";
-	document.getElementById("message").style.display = "block";
-	setTimeout(function() {
-		document.getElementById("message").style.display = "none";
-	}, 1000);
+	copyToClipboard(document.querySelector(".textarea").value);
 }
 
 function downloadList() {
