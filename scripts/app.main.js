@@ -1,4 +1,5 @@
 const State = {
+	mustMatch          : null,
 	pause              : false,
 	isMouseDown        : false,
 	highlighted        : [],
@@ -14,15 +15,10 @@ const Config = {
 
 const Results = {
 	filecount           : 0,
-	supportedImgCount   : 0,
 	clusters            : [],
-	clusterCount        : 0,
 };
 
-const DOM = {
-	allClusters : document.getElementById("clusters"),
-	progressBar : document.getElementById("progress-bar-inner"),
-}
+const DOM = {}
 
 class ImageFile {
 	static formats           = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
@@ -390,7 +386,7 @@ class ImageFile {
 
 
 // typeof files = FileList or Array[File]
-function startSearch(allFiles) {
+async function startSearch(allFiles) {
 	Config.fastRead = document.getElementById("fast-option").checked;
 
 	allImageFiles = [];
@@ -405,36 +401,34 @@ function startSearch(allFiles) {
 	});
 
 	Results.filecount = allImageFiles.length;
-
+	if (State.mustMatch) {
+		State.mustMatch = new ImageFile(State.mustMatch);
+		await State.mustMatch.load();
+	}
 	updateUISearchStarted();
-
 	processNext(allImageFiles);
 }
 
-function processNext(files, scannedFiles=null, n=0) {
+function processNext(files, scannedFiles=[], n=0) {
 	if (!files.length) {
 		updateUISearchDone();
 		return;
 	}
 	if (State.pause) {
-		setTimeout(processNext, 1000, files, scannedFiles, n);
+		setTimeout(processNext, 1000, files, scannedFiles);
 		return;
 	}
-	if (scannedFiles == null) {
-		updateUIProgress(0);
-		scannedFiles = [];
-	}
+	if (State.mustMatch)
+		scannedFiles.push(State.mustMatch);
 
 	updateUIProgress(n);
-
 	let ifile = files.pop();
-
-	Results.supportedImgCount++;
 
 	ifile.load()
 		.then(() => {
 			searchForMatch(ifile, scannedFiles);
-			scannedFiles.push(ifile);
+			if (!State.mustMatch)
+				scannedFiles.push(ifile);
 		})
 		.catch((err) => {
 			console.log("*** error loading " + ifile.path);
@@ -461,10 +455,9 @@ function groupTogether(ifile1, ifile2) {
 	let send1 = false, send2 = false;
 
 	if (i == null && j == null) {
-		ifile1.clusterID = Results.clusterCount;
-		ifile2.clusterID = Results.clusterCount;
+		ifile1.clusterID = Results.clusters.length;
+		ifile2.clusterID = Results.clusters.length;
 		Results.clusters.push([ifile1, ifile2]);
-		Results.clusterCount++;
 		send1 = true;
 		send2 = true;
 	}
@@ -481,7 +474,7 @@ function groupTogether(ifile1, ifile2) {
 		send1 = true;
 	}
 
-	if (send2) {
+	if (send2 && !State.mustMatch) {
 		updateUIDuplicateFound(ifile2);
 	}
 	if (send1) {
@@ -499,8 +492,12 @@ function groupTogether(ifile1, ifile2) {
 
 
 function filePicker() {
+	document.getElementById("input-file").click();
+}
+
+function dirPicker() {
 	updateUISearchPending();
-	document.getElementById("input-files").click();
+	document.getElementById("input-dir").click();
 }
 
 function copyToClipboard(text) {
@@ -557,25 +554,20 @@ function clickCheckbox(event) {
 
 function updateUISearchPending() {
 	setTimeout(() => {
-		document.getElementById("cancel-button").classList.remove("hidden");
-		document.getElementById("select-button").classList.add("hidden");
-		document.getElementById("spinner").classList.remove("hidden");
+		document.getElementById("options-cancel").classList.remove("hidden");
+		document.getElementById("options-start").classList.add("hidden");
 	}, 500); // start after the file picker is displayed
 }
 
 function updateUISearchStarted() {
-	document.getElementById("spinner").classList.add("hidden");
 	document.querySelector(".options-page").classList.add("hidden");
 	document.querySelector(".header").classList.remove("hidden");
 	DOM.allClusters.classList.remove("hidden");
 }
 
 function updateUIProgress(n) {
-	let s = "s";
-	if (Results.clusterCount == 1) {
-		s = "";
-	}
-	updateText(".progress-text", "Please wait... Reading file ".concat(n, " of ", Results.filecount, ". Found ", Results.clusterCount, " cluster", s, " so far."));
+	const s = Results.clusters.length == 1 ? "" : "s";
+	updateText(".progress-text", "Please wait... Reading file ".concat(n, " of ", Results.filecount, ". Found ", Results.clusters.length, " cluster", s, " so far."));
 	let pct = Math.floor(100 * n / Results.filecount);
 	if (pct < 5) {
 		pct = 5;
@@ -766,23 +758,19 @@ function updateUISearchDone() {
 	document.getElementById("button-pause-search").classList.add("hidden");
 	const progress = document.querySelector(".progress");
 	progress.removeChild(progress.querySelector(".progress-bar"));
-	let s = "s", s2 = "s";
-	if (Results.supportedImgCount == 1) {
-		s = "";
-	}
-	if (Results.clusterCount == 1) {
-		s2 = "";
-	}
-	updateText(".progress-text", "Successfully scanned ".concat(Results.supportedImgCount, " file", s, ". Found ", Results.clusterCount, " cluster", s2, "."));
-	if (Results.clusterCount == 0) {
-		updateText(".progress-text", "Zero similar images found from the successfully scanned ".concat(Results.supportedImgCount, " file", s, "."));
-		if (Results.supportedImgCount < 2) {
+	const s  = Results.filecount       == 1 ? "" : "s";
+	const s2 = Results.clusters.length == 1 ? "" : "s";
+	updateText(".progress-text", "Successfully scanned ".concat(Results.filecount, " image", s, ". Found ", Results.clusters.length, " cluster", s2, "."));
+	if (Results.clusters.length == 0) {
+		if (State.mustMatch && Results.filecount == 0) {
+			document.getElementById("message").textContent = "The selected folder does not contain any images of supported types. Images must be JPG, PNG, GIF, WEBP, or BMP files less than 40 MB in size.";
+		}
+		else if (!State.mustMatch && Results.filecount <= 1) {
 			document.getElementById("message").textContent = "The selected folder does not contain at least 2 images of supported types. Images must be JPG, PNG, GIF, WEBP, or BMP files less than 40 MB in size.";
 		} else {
 			document.getElementById("message").textContent = "No duplicates found.";
 		}
 		document.getElementById("message").classList.remove("hidden");
-		DOM.allClusters.classList.add("hidden");
 	}
 }
 
@@ -856,14 +844,24 @@ function downloadList() {
 		a.download = filename;
 		document.body.appendChild(a);
 		a.click();
-		setTimeout(function() {
+		setTimeout(() => {
 			document.body.removeChild(a);
 			window.URL.revokeObjectURL(url);
 		}, 0);
 	}
 }
 
-document.getElementById("input-files").onchange = (event) => {
+document.getElementById("input-file").onchange = (event) => {
+	State.mustMatch = event.target.files[0];
+	document.getElementById("selected-file").classList.remove("hidden");
+	let name = State.mustMatch.name;
+	if (name.length > 53)
+		name = name.substring(0, 25) + "..." + name.substring(name.length-25, name.length);
+	document.getElementById("file-path").textContent = name;
+
+}
+
+document.getElementById("input-dir").onchange = (event) => {
 	try {
 		startSearch(event.target.files);
 	} finally {
@@ -939,10 +937,16 @@ window.addEventListener("DOMContentLoaded", () => {
 	updateUIOptions();
 	window.scrollTo({top: 0});
 
-	document.getElementById("input-files").addEventListener("cancel", () => {
+	DOM.allClusters = document.getElementById("clusters");
+	DOM.progressBar = document.getElementById("progress-bar-inner");
+
+	document.getElementById("input-file").addEventListener("cancel", () => {
+		reloadPage();
+	});
+	document.getElementById("input-dir").addEventListener("cancel", () => {
 		reloadPage();
 	});
 
-	document.getElementById("select-button").textContent = "Select folder";
-	document.getElementById("select-button").classList.toggle("disabled");
+	document.getElementById("js-disabled").classList.add("hidden");
+	document.getElementById("js-enabled").classList.remove("hidden");
 });
