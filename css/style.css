@@ -36,23 +36,29 @@ h1 {
 	background-color: #F66;
 }
 
-.hollow-button {
+.hollow.button {
 	background-color: transparent;
 	border: 2px solid #F44;
 	padding: 3px 12px 3px 12px;
 }
 
-.hollow-button:hover {
+.hollow.button:hover {
 	background-color: #F44;
 }
 
-.narrow-button {
+.disabled.button {
+	opacity: 0.5;
+	cursor: not-allowed;
+	pointer-events: none; /* Prevent click events */
+}
+
+.narrow.button {
 	padding: 8px 12px;
 	font-size: 12px;
 	letter-spacing: 0.1em;
 }
 
-.tall-button {
+.tall.button {
 	line-height: 1.5;
 }
 

@@ -891,4 +891,7 @@ window.addEventListener("DOMContentLoaded", () => {
 		document.getElementById("cancel-button").style.display = "none";
 		document.getElementById("select-button").style.display = "inline-block";
 	});
+
+	document.getElementById("select-button").textContent = "Select folder";
+	document.getElementById("select-button").classList.toggle("disabled");
 });
