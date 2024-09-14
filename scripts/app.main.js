@@ -1,8 +1,14 @@
 const allClusters = document.getElementById("clusters");
 const progressBar = document.getElementById("progress-bar-inner");
 
+const State = {
+	pause              : false,
+	isMouseDown        : false,
+	highlighted        : 0,
+	highlightDirection : "",
+}
+
 const Config = {
-	pause             : false,
 	fastRead          : false,
 	thumbnailQuality  : 0.6,
 	thumbnailMaxDim   : 160,
@@ -13,7 +19,6 @@ const Results = {
 	supportedImgCount   : 0,
 	clusters            : [],
 	clusterCount        : 0,
-	highlighted         : 0,
 };
 
 class ImageFile {
@@ -361,7 +366,7 @@ function processNext(files, scannedFiles=null, n=0) {
 		updateUISearchDone();
 		return;
 	}
-	if (Config.pause) {
+	if (State.pause) {
 		setTimeout(processNext, 1000, files, scannedFiles, n);
 		return;
 	}
@@ -439,6 +444,7 @@ function addToCluster(clusterIndex, ifile) {
 	divImg.appendChild(thumb);
 	const divImgDims = createChildDiv("image-dims", divImg);
 	createThumbnail(ifile.file, thumb, divImgDims);
+	divImg.ondragstart = function() { return false; };
 
 	const divImgInfo = createChildDiv("img-info", divClusterInfo);
 	const divImgSize = createChildSpan("img-info-part size", divImgInfo);
@@ -448,29 +454,53 @@ function addToCluster(clusterIndex, ifile) {
 	divImgDate.textContent = formatDate(new Date(ifile.file.lastModified));
 	divImgPath.textContent = ifile.relpath;
 
-	hoverFunc = () => {
-		divImgInfo.classList.toggle("hovered");
-		divImg.classList.toggle("hovered");
+	mouseOverFunc = (event) => {
+		divImgInfo.classList.add("hovered");
+		divImg.classList.add("hovered");
+		if (State.isMouseDown) {
+			if (divImgInfo.classList.contains("highlighted")) {
+				if (State.highlightDirection !== "adding") {
+					State.highlightDirection = "removing";
+					State.highlighted--;
+					divImgInfo.classList.remove("highlighted");
+					divImg.classList.remove("highlighted");
+				}
+			} else {
+				if (State.highlightDirection !== "removing") {
+					State.highlightDirection = "adding";
+					State.highlighted++;
+					divImgInfo.classList.add("highlighted");
+					divImg.classList.add("highlighted");
+				}
+			}
+		}
 	}
-	clickFunc = () => {
+	mouseOutFunc = (event) => {
+		divImgInfo.classList.remove("hovered");
+		divImg.classList.remove("hovered");
+	}
+	mouseDownFunc = (event) => {
 		if (event.ctrlKey) {
+			event.stopPropagation();
 			copyToClipboard(ifile.file.name);
 		} else {
 			divImgInfo.classList.toggle("highlighted");
 			divImg.classList.toggle("highlighted");
 			if (divImgInfo.classList.contains("highlighted")) {
-				Results.highlighted++;
+				State.highlighted++;
+				State.highlightDirection = "adding";
 			} else {
-				Results.highlighted--;
+				State.highlighted--;
+				State.highlightDirection = "removing";
 			}
 		}
 	}
-	divImgInfo.addEventListener("mouseover", hoverFunc);
-	divImg.addEventListener("mouseover", hoverFunc);
-	divImgInfo.addEventListener("mouseout", hoverFunc);
-	divImg.addEventListener("mouseout", hoverFunc);
-	divImgInfo.addEventListener("click", clickFunc);
-	divImg.addEventListener("click", clickFunc);
+	divImgInfo.addEventListener("mouseover", mouseOverFunc);
+	divImg.addEventListener("mouseover", mouseOverFunc);
+	divImgInfo.addEventListener("mouseout", mouseOutFunc);
+	divImg.addEventListener("mouseout", mouseOutFunc);
+	divImgInfo.addEventListener("mousedown", mouseDownFunc);
+	divImg.addEventListener("mousedown", mouseDownFunc);
 
 	let parts = divClusterInfo.querySelectorAll(".img-info-part.size");
 	let bestPart = null, bestVal = 0, val = null;
@@ -740,7 +770,7 @@ function downloadList() {
 }
 
 function togglePause() {
-	Config.pause = !Config.pause;
+	State.pause = !State.pause;
 	if (document.getElementById("button-pause-search").textContent == "Pause") {
 		document.getElementById("button-pause-search").textContent = "Resume";
 	} else {
@@ -755,12 +785,6 @@ function reloadPage() {
 window.addEventListener("DOMContentLoaded", () => {
 	updateUIOptions();
 	window.scrollTo({top: 0});
-
-	document.addEventListener("keydown", (event) => {
-		if (event.key === "Escape" && document.querySelector(".textarea").classList.contains("textareaon")) {
-			toggleList();
-		}
-	});
 
 	document.getElementById("input-files").addEventListener("cancel", () => {
 		document.getElementById("cancel-button").style.display = "none";
@@ -896,4 +920,19 @@ window.addEventListener("DOMContentLoaded", () => {
 		}
 	});
 	*/
+});
+
+document.addEventListener("keydown", (event) => {
+	if (event.key === "Escape" && document.querySelector(".textarea").classList.contains("textareaon")) {
+		toggleList();
+	}
+});
+
+document.addEventListener('mousedown', () => {
+	State.isMouseDown = true;
+});
+
+document.addEventListener('mouseup', () => {
+	State.isMouseDown = false;
+	State.highlightDirection = "";
 });
