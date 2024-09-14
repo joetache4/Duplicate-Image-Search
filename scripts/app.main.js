@@ -504,6 +504,13 @@ function addToCluster(clusterIndex, ifile) {
 			part.classList.add("best-part");
 		}
 	});
+
+	parts = divClusterInfo.querySelectorAll(".img-info-part.path");
+	parts.forEach((part) => {
+		if (part.textContent.endsWith(".png")) {
+			part.classList.add("best-part");
+		}
+	});
 }
 
 function createThumbnail(file, thumb, divImgDims) {
