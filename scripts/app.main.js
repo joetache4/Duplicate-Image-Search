@@ -1,6 +1,3 @@
-const allClusters = document.getElementById("clusters");
-const progressBar = document.getElementById("progress-bar-inner");
-
 const State = {
 	pause              : false,
 	isMouseDown        : false,
@@ -9,9 +6,10 @@ const State = {
 }
 
 const Config = {
-	fastRead          : false,
-	thumbnailQuality  : 0.6,
-	thumbnailMaxDim   : 160,
+	fastRead            : false,
+	thumbnailQuality    : 0.6,
+	thumbnailMaxDim     : 160,
+	thumbnailOversample : 2,
 };
 
 const Results = {
@@ -21,15 +19,19 @@ const Results = {
 	clusterCount        : 0,
 };
 
+const DOM = {
+	allClusters : document.getElementById("clusters"),
+	progressBar : document.getElementById("progress-bar-inner"),
+}
+
 class ImageFile {
 	static formats           = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 
 	static thumbReadLimit    = 80*1024;
 	static maxFileSize       = 40*1024*1024;
 
-	static iconDim           = 11;   // Images will be processed into icons of this side length
-
-	static ratioTolerancePct = 10;
+	static iconDim           = 11;   // Images will be hashed into icons of this side length
+	static ratioTolerancePct = 10;   // Image aspect ratios may differ by up to 10% before comparing
 	static acceptLumaDist    = 2;    // Images will be considered similar if there luma distance is within this threshold
 	static rejectLumaDist    = 500;  // Images will be considered distinct if there luma distance is outside this threshold
 	static rejectChromaDist  = 1000; // Images will be considered distinct if there chroma distance is outside this threshold
@@ -65,10 +67,10 @@ class ImageFile {
 		this.relpath    = file.webkitRelativePath || file.name; // webkitRelativePath is "" for top-level dropped files
 		this.depth      = this.relpath.split("/").length-1; // Forward-slash is used on Windows, too
 		this.type       = null;
-		this.val        = null;
+		this.valid      = null;
 		this.width      = null;
 		this.height     = null;
-		this.icon       = null;
+		this.hash       = null;
 		this.clusterID  = null;
 
 		// type is "" for dropped files inside folders
@@ -79,67 +81,68 @@ class ImageFile {
 		}
 	}
 
-	valid() {
-		if (this.val === null) {
-			this.val = ImageFile.formats.includes(this.type) && this.file.size <= ImageFile.maxFileSize;
+	isValid() {
+		if (this.valid === null) {
+			this.valid = ImageFile.formats.includes(this.type) && this.file.size <= ImageFile.maxFileSize;
 		}
-		return this.val;
+		return this.valid;
 	}
 
 	load(firstAttempt = true) {
 		if (firstAttempt && Config.fastRead && this.type == "jpeg") {
 
-			this.readThumbnail(function(data) {
+			this.readThumbnail((data) => {
 				if (data == null) {
 					this.load(false);
 				} else {
 
-					ImageFile.img.onload = function() {
-						this.icon   = ImageFile.icon();
-						this.width  = ImageFile.img.width;
+					ImageFile.img.onload = () => {
+						this.hash   = ImageFile.getHash();
+						this.width  = ImageFile.img.width; // dimensions of thumbnail, still useful for determining aspect ratio
 						this.height = ImageFile.img.height;
 						URL.revokeObjectURL(ImageFile.img.src);
 						this.onload();
-					}.bind(this);
+					}
 
-					ImageFile.img.onerror = function() {
+					ImageFile.img.onerror = () => {
 						URL.revokeObjectURL(ImageFile.img.src);
 						this.load(false);
-					}.bind(this);
+					}
 
 					ImageFile.img.src = URL.createObjectURL(data);
 				}
-			}.bind(this));
+			});
 		} else {
 
-			ImageFile.reader.onload = function(evt) {
+			ImageFile.reader.onload = (evt) => {
 
-				ImageFile.img.onload = function() {
-					this.icon   = ImageFile.icon();
+				ImageFile.img.onload = () => {
+					this.hash   = ImageFile.getHash();
 					this.width  = ImageFile.img.width;
 					this.height = ImageFile.img.height;
 					this.onload();
-				}.bind(this);
+				}
 
-				ImageFile.img.onerror = function() {
-					this.val = false;
+				ImageFile.img.onerror = () => {
+					this.valid = false;
 					this.onerror();
-				}.bind(this);
+				}
 
-				ImageFile.img.src = evt.target.result; // TODO slow
-			}.bind(this);
+				ImageFile.img.src = evt.target.result; // slow
+			}
 
-			ImageFile.reader.onerror = function() {
-				this.val = false;
+			ImageFile.reader.onerror = () => {
+				this.valid = false;
 				this.onerror();
-			}.bind(this);
+			}
 
 			ImageFile.reader.readAsDataURL(this.file);
 		}
 	}
 
 	readThumbnail(callback) {
-		ImageFile.reader.onload = function(evt) {
+
+		ImageFile.reader.onload = (evt) => {
 			const arr = new Uint8Array(evt.target.result);
 			let lo, hi;
 			for (let i = 2; i < arr.length; i++) {
@@ -162,11 +165,11 @@ class ImageFile {
 			} else {
 				callback(null);
 			}
-		}.bind(this);
+		}
 
-		ImageFile.reader.onerror = function() {
+		ImageFile.reader.onerror = () => {
 			callback(null);
-		}.bind(this);
+		}
 
 		ImageFile.reader.readAsArrayBuffer(this.file.slice(0, ImageFile.thumbReadLimit));
 	}
@@ -192,9 +195,9 @@ class ImageFile {
 	}
 	*/
 
-	static icon() {
-		ImageFile.context.drawImage(ImageFile.img, 0, 0, ImageFile.canvasDim, ImageFile.canvasDim); // TODO very slow
-		let data = ImageFile.context.getImageData(0, 0, ImageFile.canvasDim, ImageFile.canvasDim).data; // TODO slow
+	static getHash() {
+		ImageFile.context.drawImage(ImageFile.img, 0, 0, ImageFile.canvasDim, ImageFile.canvasDim); // very slow
+		let data = ImageFile.context.getImageData(0, 0, ImageFile.canvasDim, ImageFile.canvasDim).data; // slow
 		//data = ImageFile.rgbaToYcbcr(data); // there is slightly less float instability when this is performed before the box blur, but it is negligible
 		data = ImageFile.boxBlur(data, ImageFile.canvasDim, ImageFile.canvasDim, ImageFile.cellDim, ImageFile.cellDim);
 		data = ImageFile.boxBlur(data, ImageFile.blockDim, ImageFile.blockDim, 3, 2);
@@ -287,8 +290,8 @@ class ImageFile {
 	}
 
 	similar(other) {
-		const icon1 = this.icon, icon2 = other.icon;
-		const w1 = this.width, w2 = other.width;
+		const icon1 = this.hash, icon2 = other.hash;
+		const w1 = this.width,  w2 = other.width;
 		const h1 = this.height, h2 = other.height;
 
 		let dist  = 0;
@@ -328,9 +331,6 @@ class ImageFile {
 
 		return true;
 	}
-
-	onload() {}
-	onerror() {}
 }
 
 
@@ -350,7 +350,7 @@ function startSearch(allFiles) {
 	allImageFiles = [];
 	Array.from(allFiles).forEach(file => {
 		let ifile = new ImageFile(file);
-		if (ifile.valid()) {
+		if (ifile.isValid()) {
 			allImageFiles.push(ifile);
 		}
 	});
@@ -416,22 +416,22 @@ function groupTogether(ifile1, ifile2) {
 		ifile2.clusterID = Results.clusterCount;
 		Results.clusters.push([ifile1, ifile2]);
 		Results.clusterCount++;
-		updateUIDuplicateFound(Results.clusterCount - 1, ifile2);
-		updateUIDuplicateFound(Results.clusterCount - 1, ifile1);
+		updateUIDuplicateFound(ifile2);
+		updateUIDuplicateFound(ifile1);
 		return;
 	}
 
 	if (typeof i === "number") {
 		Results.clusters[i].push(ifile2);
 		ifile2.clusterID = i;
-		updateUIDuplicateFound(i, ifile2);
+		updateUIDuplicateFound(ifile2);
 		return;
 	}
 
 	if (typeof j === "number") {
 		Results.clusters[j].push(ifile1);
 		ifile1.clusterID = j;
-		updateUIDuplicateFound(j, ifile1);
+		updateUIDuplicateFound(ifile1);
 		return;
 	}
 }
@@ -443,16 +443,16 @@ function createThumbnail(file, thumb, divImgDims) {
 		let canvas = document.createElement("canvas");
 		let context = canvas.getContext("2d", { willReadFrequently: true });
 		img.onload = function() {
-			divImgDims.textContent = "".concat(img.width, "×", img.height);
+			divImgDims.textContent = "".concat(img.width, "×", img.height); // "true" width and height are read here
 			if (img.width >= img.height) {
-				canvas.height = Config.thumbnailMaxDim * 2;
+				canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
 				canvas.width = Math.floor(img.width * canvas.height / img.height);
 			} else {
-				canvas.width = Config.thumbnailMaxDim * 2;
+				canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
 				canvas.height = Math.floor(img.height * canvas.width / img.width);
 			}
-			thumb.width = canvas.width / 2;
-			thumb.height = canvas.height / 2;
+			thumb.width = canvas.width / Config.thumbnailOversample;
+			thumb.height = canvas.height / Config.thumbnailOversample;
 			context.drawImage(img, 0, 0, canvas.width, canvas.height);
 			thumb.src = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
 			canvas  = null;
@@ -460,7 +460,7 @@ function createThumbnail(file, thumb, divImgDims) {
 			img     = null;
 			reader  = null;
 		};
-		img.src = evt.target.result; // TODO slow
+		img.src = evt.target.result; // slow
 	};
 	reader.readAsDataURL(file);
 }
@@ -512,25 +512,22 @@ function formatDate(d){
 
 function updateLocalStorage() {
 	localStorage.setItem("fast-option", document.getElementById("fast-option").checked);
-	return;
 }
 
 function updateUIOptions() {
 	if (localStorage.getItem("fast-option") == null) {
 		document.getElementById("fast-option").checked = true;
-		return;
 	}
-	if (localStorage.getItem("fast-option") == "false") {
+	else if (localStorage.getItem("fast-option") == "false") {
 		document.getElementById("fast-option").checked = false;
 	} else {
 		document.getElementById("fast-option").checked = true;
 	}
-	return;
 }
 
 function clickCheckbox(event) {
-	if (event.target.tagName != 'INPUT') {
-		document.getElementById('fast-option').click();
+	if (event.target.tagName != "INPUT") {
+		document.getElementById("fast-option").click();
 	}
 }
 
@@ -546,7 +543,7 @@ function updateUISearchStarted() {
 	document.getElementById("spinner").classList.add("hidden");
 	document.querySelector(".options-page").classList.add("hidden");
 	document.querySelector(".header").classList.remove("hidden");
-	allClusters.classList.remove("hidden");
+	DOM.allClusters.classList.remove("hidden");
 }
 
 function updateUIProgress(n) {
@@ -559,15 +556,15 @@ function updateUIProgress(n) {
 	if (pct < 5) {
 		pct = 5;
 	}
-	progressBar.style.width = "".concat(pct, "%");
+	DOM.progressBar.style.width = "".concat(pct, "%");
 }
 
-function updateUIDuplicateFound(clusterIndex, ifile) {
-	let divClusterImgs = document.querySelectorAll(".cluster-imgs")[clusterIndex];
-	let divClusterInfo = document.querySelectorAll(".cluster-info")[clusterIndex];
+function updateUIDuplicateFound(ifile) {
+	let divClusterImgs = document.querySelectorAll(".cluster-imgs")[ifile.clusterID];
+	let divClusterInfo = document.querySelectorAll(".cluster-info")[ifile.clusterID];
 
 	if (divClusterImgs === undefined) {
-		const a = createChildDiv("cluster", allClusters);
+		const a = createChildDiv("cluster", DOM.allClusters);
 		const b = createChildDiv("cluster-num", a);
 		b.textContent = ifile.clusterID + 1;
 		const c = createChildDiv("cluster-content", a);
@@ -585,8 +582,9 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 	thumb.title = ifile.relpath;
 	divImg.appendChild(thumb);
 	const divImgDims = createChildDiv("image-dims", divImg);
-	createThumbnail(ifile.file, thumb, divImgDims);
 	divImg.ondragstart = function() { return false; };
+
+	createThumbnail(ifile.file, thumb, divImgDims);
 
 	const divImgInfo = createChildDiv("img-info", divClusterInfo);
 	const divImgSize = createChildSpan("img-info-part size", divImgInfo);
@@ -623,7 +621,7 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 	*/
 
 	mouseOverFunc = (event) => {
-		const clusterNum = document.querySelectorAll(".cluster-num")[clusterIndex];
+		const clusterNum = document.querySelectorAll(".cluster-num")[ifile.clusterID];
 		divImgInfo.classList.add("hovered");
 		divImg.classList.add("hovered");
 		if (State.isMouseDown) {
@@ -632,9 +630,9 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 					divImgInfo.classList.remove("highlighted");
 					divImg.classList.remove("highlighted");
 					State.highlightDirection = "removing";
-					State.highlighted[clusterIndex]--;
+					State.highlighted[ifile.clusterID]--;
 					clusterNum.classList.remove("all-selected");
-					if (State.highlighted[clusterIndex] == 0) {
+					if (State.highlighted[ifile.clusterID] == 0) {
 						clusterNum.classList.remove("some-selected");
 					}
 				}
@@ -643,9 +641,9 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 					divImgInfo.classList.add("highlighted");
 					divImg.classList.add("highlighted");
 					State.highlightDirection = "adding";
-					State.highlighted[clusterIndex]++;
+					State.highlighted[ifile.clusterID]++;
 					clusterNum.classList.add("some-selected");
-					if (State.highlighted[clusterIndex] == divClusterImgs.children.length) {
+					if (State.highlighted[ifile.clusterID] == divClusterImgs.children.length) {
 						clusterNum.classList.add("all-selected");
 					}
 				}
@@ -657,7 +655,7 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 		divImg.classList.remove("hovered");
 	}
 	mouseDownFunc = (event) => {
-		const clusterNum = document.querySelectorAll(".cluster-num")[clusterIndex];
+		const clusterNum = document.querySelectorAll(".cluster-num")[ifile.clusterID];
 		if (event.ctrlKey) {
 			event.stopPropagation();
 			copyToClipboard(ifile.file.name);
@@ -666,16 +664,16 @@ function updateUIDuplicateFound(clusterIndex, ifile) {
 			divImg.classList.toggle("highlighted");
 			if (divImgInfo.classList.contains("highlighted")) {
 				State.highlightDirection = "adding";
-				State.highlighted[clusterIndex]++;
+				State.highlighted[ifile.clusterID]++;
 				clusterNum.classList.add("some-selected");
-				if (State.highlighted[clusterIndex] == divClusterImgs.children.length) {
+				if (State.highlighted[ifile.clusterID] == divClusterImgs.children.length) {
 					clusterNum.classList.add("all-selected");
 				}
 			} else {
 				State.highlightDirection = "removing";
-				State.highlighted[clusterIndex]--;
+				State.highlighted[ifile.clusterID]--;
 				clusterNum.classList.remove("all-selected");
-				if (State.highlighted[clusterIndex] == 0) {
+				if (State.highlighted[ifile.clusterID] == 0) {
 					clusterNum.classList.remove("some-selected");
 				}
 			}
@@ -750,9 +748,8 @@ function updateUISearchDone() {
 			document.getElementById("message").textContent = "No duplicates found.";
 		}
 		document.getElementById("message").classList.remove("hidden");
-		allClusters.classList.add("hidden");
+		DOM.allClusters.classList.add("hidden");
 	}
-	return;
 }
 
 function togglePause() {
@@ -783,7 +780,7 @@ function showAllList() {
 
 function showHighlightedList() {
 	let text = "";
-	for (let cluster of allClusters.querySelectorAll(".cluster")) {
+	for (let cluster of DOM.allClusters.querySelectorAll(".cluster")) {
 		let paths = cluster.querySelectorAll(".highlighted.img-info > .path");
 		if (paths.length) {
 			for (let path of paths) {
@@ -873,7 +870,7 @@ document.addEventListener("drop", (event) => {
 	// can scan subdriectories with FileSystemDirectoryEntry, but not with File
 	const scanFiles = (entry) => {
 		if (entry.isFile) {
-			entry.file(onFile, onErr);
+			entry.file(onFile, onErr); // TODO for some reason, this will sometimes throw an EncodingError on Edge when run locally
 		} else {
 			entry.createReader().readEntries(onEntries, onErr);
 		}
