@@ -62,7 +62,7 @@ class ImageFile {
 
 	constructor(file) {
 		this.file       = file;
-		this.relpath    = file.webkitRelativePath || file.name; // webkitRelativePath is "" for dragged-on files
+		this.relpath    = file.webkitRelativePath || file.name; // webkitRelativePath is "" for top-level dropped files
 		this.depth      = this.relpath.split("/").length-1; // Forward-slash is used on Windows, too
 		this.type       = null;
 		this.val        = null;
@@ -71,7 +71,7 @@ class ImageFile {
 		this.icon       = null;
 		this.clusterID  = null;
 
-		// drag-and-dropped files don't get a type for some reason
+		// type is "" for dropped files inside folders
 		const i = file.name.lastIndexOf(".");
 		this.type = i == -1 ? "" : file.name.substring(i+1);
 		if (this.type === "jpg") {
@@ -332,6 +332,14 @@ class ImageFile {
 	onload() {}
 	onerror() {}
 }
+
+
+
+
+
+
+
+
 
 
 
@@ -652,15 +660,6 @@ function createClusterDivs(clusterIndex) {
 	});
 }
 
-function checkBrowser() {
-	const selected = document.getElementById("input-files");
-	if (!selected.webkitdirectory) {
-		alert("This browser does not support folder selection.");
-		return;
-	}
-	selected.click();
-}
-
 function updateLocalStorage() {
 	localStorage.setItem("fast-option", document.getElementById("fast-option").checked);
 	return;
@@ -688,9 +687,8 @@ function clickCheckbox(event) {
 function updateUISearchPending() {
 	setTimeout(() => {
 		document.getElementById("cancel-button").style.display = "inline-block";
-		document.getElementById("file-selector").style.display = "none";
+		document.getElementById("select-button").style.display = "none";
 	}, 500);
-
 }
 
 function updateUISearchDone() {
@@ -808,145 +806,67 @@ function reloadPage() {
 	location.reload();
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-	updateUIOptions();
-	window.scrollTo({top: 0});
+function filePicker() {
+	updateUISearchPending();
+	document.getElementById("input-files").click();
+}
 
-	document.getElementById("input-files").addEventListener("cancel", () => {
-		document.getElementById("cancel-button").style.display = "none";
-		document.getElementById("file-selector").style.display = "inline-block";
-	});
+document.getElementById("input-files").onchange = (event) => {
+	try {
+		startSearch(event.target.files);
+	} finally {
+		event.target.value = "";
+	}
+}
 
-	const supportsDirs = typeof DataTransferItem != 'undefined' && 'webkitGetAsEntry' in DataTransferItem.prototype;
-	const dropzone = document.getElementById("dropzone");
+document.addEventListener("dragover", (event) => {
+    event.preventDefault();
+});
 
-	dropzone.addEventListener("dragover", (e) => {
-		e.preventDefault();
-	});
+document.addEventListener("drop", (event) => {
+	event.preventDefault();
 
-	dropzone.addEventListener('drop', (ev) => {
-		ev.preventDefault();
-		const tf = ev.dataTransfer;
-		if (!tf.files.length) {
-			return;
-		} else {
-			if (supportsDirs) {
-				let outFiles = [];
-				let lft = tf.items.length;
-				let errored = false;
-				const onErr = (err) => {
-					if (!errored) {
-						errored = true;
-						console.log(err);
-					}
-				}
-				const onDone = (f) => {
-					outFiles = outFiles.concat(f);
-					if (!--lft && !errored) {
-						startSearch(outFiles);
-					}
-				};
-				for (let i = 0; i < tf.items.length; ++i) {
-					const entry = tf.items[i].webkitGetAsEntry();
-					if (entry.isFile) {
-						entry.file(f => onDone([f]), onErr);
-					}
-					else {
-						readRecurse(entry, onDone, onErr);
-					}
-				}
-			} else {
-				alert("This browser does not support folder drag-and-drop!");
-			}
+	updateUISearchPending();
+
+	const items = event.dataTransfer.items;
+	const files = [];
+
+	let count = items.length;
+
+	const onFile = (file) => {
+		files.push(file);
+		if (!--count) startSearch(files);
+	}
+	const onEntries = (entries) => {
+		count += entries.length;
+		for (const entry of entries) {
+			scanFiles(entry);
 		}
-	});
-
-	const readRecurse = (dir, onComplete, onError) => {
-		let files = [];
-		let total = 0;
-		let errored = false;
-		let reachedEnd = false;
-		const onErr = (err) => {
-			if (!errored) {
-				errored = true;
-				onError(err);
-			}
-		};
-		const onDone = (f) => {
-			files = files.concat(f);
-			if (!--total && reachedEnd) {
-				onComplete(files);
-			}
-		};
-		const reader = dir.createReader();
-		const onRead = (entries) => {
-			if (!entries.length && !errored) {
-				if (!total) {
-					onComplete(files);
-				}
-				else {
-					reachedEnd = true;
-				}
-			} else reader.readEntries(onRead, onError);
-			for (const entry of entries) {
-				++total;
-				if (entry.isFile) {
-					entry.file(f => onDone([f]), onErr);
-				}
-				else {
-					readRecurse(entry, onDone, onErr);
-				}
-			}
-		};
-		reader.readEntries(onRead, onError);
+		if (!--count) startSearch(files);
+	};
+	const onErr = (err) => {
+		console.log(err);
+		if (!--count) startSearch(files);
 	}
 
-	/*
-	dropzone.addEventListener("drop", (ev) => {
-		ev.preventDefault();
-		const tf = ev.dataTransfer;
-		if (!tf.files.length) {
-			return;
+	// can scan subdriectories with FileSystemDirectoryEntry, but not with File
+	const scanFiles = (entry) => {
+		if (entry.isFile) {
+			entry.file(onFile, onErr);
 		} else {
-			if (supportsDirs) {
-				let outFiles = [];
-
-				let count = 0;
-				acceptFiles = (entries) => {
-					count += entries.length;
-					for (const entry of entries) {
-						try {
-							if (entry.isFile) {
-								entry.file(f => outFiles.push(f)); // TODO f.type == ""
-								count--;
-							} else {
-								const reader = entry.createReader();
-								const onRead = (moreEntries) => {
-									acceptFiles(moreEntries);
-									count--;
-								};
-								reader.readEntries(acceptFiles);
-							}
-						} catch {
-							console.log("error reading file " + entry.name);
-						}
-					}
-					if (count == 0) {
-						console.log(outFiles);
-						startSearch(outFiles);
-					}
-				}
-
-				console.log("drag");
-				acceptFiles(Array.from(tf.items).map(e => e.webkitGetAsEntry()));
-
-			} else {
-				alert("This browser does not support folder drag-and-drop!");
-			}
+			entry.createReader().readEntries(onEntries, onErr);
 		}
-	});
-	*/
-});
+	}
+
+	for (const item of items) {
+		const entry = item.webkitGetAsEntry();
+		if (entry) {
+			scanFiles(entry);
+		} else {
+			if (!--count) startSearch(files);
+		}
+	}
+}, false);
 
 document.addEventListener("keydown", (event) => {
 	if (event.key === "Escape" && document.querySelector(".textarea").classList.contains("textareaon")) {
@@ -961,4 +881,14 @@ document.addEventListener('mousedown', () => {
 document.addEventListener('mouseup', () => {
 	State.isMouseDown = false;
 	State.highlightDirection = "";
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+	updateUIOptions();
+	window.scrollTo({top: 0});
+
+	document.getElementById("input-files").addEventListener("cancel", () => {
+		document.getElementById("cancel-button").style.display = "none";
+		document.getElementById("select-button").style.display = "inline-block";
+	});
 });

@@ -16,10 +16,8 @@
 
 	<h1>Duplicate Image Search</h1>
 
-	<div id="file-selector" onclick="checkBrowser()">
-	<input type="file" id="input-files" class="hidden" webkitdirectory multiple accept="image/*" onchange="startSearch(this.files)" onclick="updateUISearchPending()">
-	<div class="button tall-button">Select folder</div>
-	</div>
+	<input type="file" id="input-files" class="hidden" webkitdirectory multiple accept="image/*">
+	<div id="select-button" class="button tall-button" onclick="filePicker()">Select folder</div>
 	<div id="cancel-button" class="button hollow-button tall-button hidden" onclick="reloadPage()">Cancel Search</div>
 
 	<div class="fast-option noselect" onclick="clickCheckbox(event)">
