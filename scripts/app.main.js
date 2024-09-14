@@ -57,6 +57,8 @@ class ImageFile {
 
 	constructor(file) {
 		this.file       = file;
+		this.relpath    = file.webkitRelativePath || file.name; // webkitRelativePath is "" for dragged-on files
+		this.depth      = navigator.userAgent.indexOf("Win") >= 0 ? this.relpath.split("\\").length-1 : this.relpath.split("/").length-1;
 		this.type       = null;
 		this.val        = null;
 		this.width      = null;
@@ -328,22 +330,34 @@ class ImageFile {
 
 
 
-// typeof files === "FileList"
-function startSearch(files) {
+// typeof files = FileList or Array[File]
+function startSearch(allFiles) {
 	Config.fastRead = document.getElementById("fast-option").checked;
+
+	allImageFiles = [];
+	Array.from(allFiles).forEach(file => {
+		let ifile = new ImageFile(file);
+		if (ifile.valid()) {
+			allImageFiles.push(ifile);
+		}
+	});
+	allImageFiles.sort((a,b) => {
+		const d = a.depth - b.depth;
+		if (d) return -d;
+		return -a.relpath.localeCompare(b.relpath); // negative b/c items will be popped from the back
+	});
+
+	Results.filecount = allImageFiles.length;
 
 	document.querySelector(".options-page").style.display = "none";
 	document.querySelector(".header").style.display = "block";
 	allClusters.style.display = "block";
 
-	files = Array.from(files);
-	files.reverse();
-	Results.filecount = files.length;
-	processNext(files);
+	processNext(allImageFiles);
 }
 
 function processNext(files, scannedFiles=null, n=0) {
-	if (files.length == 0) {
+	if (!files.length) {
 		updateUISearchDone();
 		return;
 	}
@@ -352,37 +366,32 @@ function processNext(files, scannedFiles=null, n=0) {
 		return;
 	}
 	if (scannedFiles == null) {
+		updateProgress(0);
 		scannedFiles = [];
 	}
 
-	n++;
 	updateProgress(n);
 
-	let ifile = new ImageFile(files.pop());
-
-	if (!ifile.valid()) {
-		processNext(files, scannedFiles, n);
-		return;
-	}
+	let ifile = files.pop();
 
 	Results.supportedImgCount++;
 
 	ifile.onload = function() {
 		searchForMatch(ifile, scannedFiles);
 		scannedFiles.push(ifile);
-		processNext(files, scannedFiles, n);
+		processNext(files, scannedFiles, n+1);
 	};
 
 	ifile.onerror = function() {
-		processNext(files, scannedFiles, n);
+		processNext(files, scannedFiles, n+1);
 	};
 
 	ifile.load();
 }
 
 function searchForMatch(ifile, scannedFiles) {
-	for (let ifile2 of scannedFiles) {
-		if (ifile2.valid() && ifile.similar(ifile2)) {
+	for (const ifile2 of scannedFiles) {
+		if (ifile.similar(ifile2)) {
 			groupTogether(ifile, ifile2);
 			break;
 		}
@@ -426,7 +435,7 @@ function addToCluster(clusterIndex, ifile) {
 	const divImg = createChildDiv("div-img", divClusterImgs);
 	const thumb = new Image();
 	thumb.classList.add("cluster-img");
-	thumb.title = ifile.file.webkitRelativePath || ifile.file.name; // webkitRelativePath is "" for dragged-on files
+	thumb.title = ifile.relpath;
 	divImg.appendChild(thumb);
 	const divImgDims = createChildDiv("image-dims", divImg);
 	createThumbnail(ifile.file, thumb, divImgDims);
@@ -437,27 +446,7 @@ function addToCluster(clusterIndex, ifile) {
 	const divImgPath = createChildSpan("img-info-part path", divImgInfo);
 	divImgSize.textContent = parseInt(ifile.file.size/1024);
 	divImgDate.textContent = formatDate(new Date(ifile.file.lastModified));
-	divImgPath.textContent = ifile.file.webkitRelativePath || ifile.file.name;
-
-	// alphabetize images by path name
-	tmp = Array.from(divClusterImgs.children)
-	tmp.sort((a,b) => {
-		textA = a.children[0].title;
-		textB = b.children[0].title;
-		return textA.localeCompare(textB);
-	});
-	divClusterImgs.innerHTML = "";
-	tmp.forEach(child => divClusterImgs.appendChild(child));
-
-	// alphabetize path names
-	tmp = Array.from(divClusterInfo.children)
-	tmp.sort((a,b) => {
-		textA = a.querySelector(".path").textContent;
-		textB = b.querySelector(".path").textContent;
-		return textA.localeCompare(textB);
-	});
-	divClusterInfo.innerHTML = "";
-	tmp.forEach(child => divClusterInfo.appendChild(child));
+	divImgPath.textContent = ifile.relpath;
 
 	hoverFunc = () => {
 		divImgInfo.classList.toggle("hovered");
