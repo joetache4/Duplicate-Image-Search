@@ -63,7 +63,7 @@ class ImageFile {
 	constructor(file) {
 		this.file       = file;
 		this.relpath    = file.webkitRelativePath || file.name; // webkitRelativePath is "" for dragged-on files
-		this.depth      = navigator.userAgent.indexOf("Win") >= 0 ? this.relpath.split("\\").length-1 : this.relpath.split("/").length-1;
+		this.depth      = this.relpath.split("/").length-1; // Forward-slash is used on Windows, too
 		this.type       = null;
 		this.val        = null;
 		this.width      = null;
@@ -413,8 +413,8 @@ function groupTogether(ifile1, ifile2) {
 		Results.clusters.push([ifile1, ifile2]);
 		Results.clusterCount++;
 		createClusterDivs(Results.clusterCount - 1);
-		addToCluster(Results.clusterCount - 1, ifile1);
 		addToCluster(Results.clusterCount - 1, ifile2);
+		addToCluster(Results.clusterCount - 1, ifile1);
 		return;
 	}
 
@@ -453,6 +453,32 @@ function addToCluster(clusterIndex, ifile) {
 	divImgSize.textContent = parseInt(ifile.file.size/1024);
 	divImgDate.textContent = formatDate(new Date(ifile.file.lastModified));
 	divImgPath.textContent = ifile.relpath;
+
+	/*
+	// alphabetize images by path name
+	tmp = Array.from(divClusterImgs.children)
+	tmp.sort((a,b) => {
+		const textA = a.children[0].title;
+		const textB = b.children[0].title;
+		const diff = textA.split("/").length - textB.split("/").length;
+		if (diff) return diff;
+		return textA.localeCompare(textB);
+	});
+	divClusterImgs.innerHTML = "";
+	tmp.forEach(child => divClusterImgs.appendChild(child));
+
+	// alphabetize path names
+	tmp = Array.from(divClusterInfo.children)
+	tmp.sort((a,b) => {
+		const textA = a.querySelector(".path").textContent;
+		const textB = b.querySelector(".path").textContent;
+		const diff = textA.split("/").length - textB.split("/").length;
+		if (diff) return diff;
+		return textA.localeCompare(textB);
+	});
+	divClusterInfo.innerHTML = "";
+	tmp.forEach(child => divClusterInfo.appendChild(child));
+	*/
 
 	mouseOverFunc = (event) => {
 		divImgInfo.classList.add("hovered");
