@@ -48,7 +48,6 @@ class ImageFile {
 
 		ImageFile.canvasDim = ImageFile.blockDim * ImageFile.cellDim; // Images will be loaded as squares with this side length
 
-		ImageFile.reader  = new FileReader();
 		ImageFile.img     = new Image();
 		ImageFile.canvas  = document.createElement("canvas");
 		ImageFile.context = ImageFile.canvas.getContext("2d", { willReadFrequently: true });
@@ -89,50 +88,55 @@ class ImageFile {
 		return this.valid;
 	}
 
-	load(firstAttempt=true) {
-		if (firstAttempt && Config.fastRead && this.type == "jpeg") {
+	load() {
+		return new Promise((resolve, reject) => {
+			if (Config.fastRead && this.type == "jpeg") {
+				this.readThumbnail((data) => {
+					if (data == null) {
+						this.load_file(resolve, reject);
+					} else {
+						ImageFile.img.onload = () => {
+							URL.revokeObjectURL(ImageFile.img.src);
+							this.hash = ImageFile.getHash();
+							resolve();
+						}
 
-			this.readThumbnail((data) => {
-				if (data == null) {
-					this.load(false);
-				} else {
-					ImageFile.img.onload = () => {
-						this.hash = ImageFile.getHash();
-						URL.revokeObjectURL(ImageFile.img.src);
-						this.onload();
+						ImageFile.img.onerror = () => {
+							this.load_file(resolve, reject);
+						}
+
+						ImageFile.img.src = URL.createObjectURL(data);
 					}
-
-					ImageFile.img.onerror = () => {
-						URL.revokeObjectURL(ImageFile.img.src);
-						this.load(false);
-					}
-
-					ImageFile.img.src = URL.createObjectURL(data);
-				}
-			});
-		} else {
-
-			ImageFile.img.onload = () => {
-				this.hash   = ImageFile.getHash();
-				this.width  = ImageFile.img.width;
-				this.height = ImageFile.img.height;
-				URL.revokeObjectURL(ImageFile.img.src);
-				this.onload();
+				});
+			} else {
+				this.load_file(resolve, reject);
 			}
+		});
+	}
 
-			ImageFile.img.onerror = () => {
-				this.valid = false;
-				URL.revokeObjectURL(ImageFile.img.src);
-				this.onerror();
-			}
-
-			ImageFile.img.src = URL.createObjectURL(this.file); // slow
+	load_file(resolve, reject) {
+		ImageFile.img.onload = () => {
+			URL.revokeObjectURL(ImageFile.img.src);
+			this.hash   = ImageFile.getHash();
+			this.width  = ImageFile.img.width;
+			this.height = ImageFile.img.height;
+			resolve();
 		}
+
+		ImageFile.img.onerror = () => {
+			URL.revokeObjectURL(ImageFile.img.src);
+			this.valid = false;
+			reject();
+		}
+
+		ImageFile.img.src = URL.createObjectURL(this.file); // slow
 	}
 
 	readThumbnail(callback) {
 
-		ImageFile.reader.onload = (evt) => {
+		const reader = new FileReader();
+
+		reader.onload = (evt) => {
 			const bytes = new Uint8Array(evt.target.result);
 			let lo, hi;
 			for (let i = 0; i < bytes.length; ) {
@@ -180,11 +184,11 @@ class ImageFile {
 			}
 		}
 
-		ImageFile.reader.onerror = () => {
+		reader.onerror = () => {
 			callback(null);
 		}
 
-		ImageFile.reader.readAsArrayBuffer(this.file.slice(0, 80*1024));
+		reader.readAsArrayBuffer(this.file.slice(0, 80*1024));
 	}
 
 	/*
@@ -349,25 +353,20 @@ class ImageFile {
 		return new Promise( (resolve, reject) => {
 
 			let img = new Image();
-			let canvas = document.createElement("canvas");
-			let context = canvas.getContext("2d", { willReadFrequently: true });
 
 			img.onload =  () => {
 				if (img.width >= img.height) {
-					canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
-					canvas.width = Math.floor(img.width * canvas.height / img.height);
+					ImageFile.canvas.height = Config.thumbnailMaxDim * Config.thumbnailOversample;
+					ImageFile.canvas.width = Math.floor(img.width * ImageFile.canvas.height / img.height);
 				} else {
-					canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
-					canvas.height = Math.floor(img.height * canvas.width / img.width);
+					ImageFile.canvas.width = Config.thumbnailMaxDim * Config.thumbnailOversample;
+					ImageFile.canvas.height = Math.floor(img.height * ImageFile.canvas.width / img.width);
 				}
-				context.drawImage(img, 0, 0, canvas.width, canvas.height);
-				this.thumbdata = canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
+				ImageFile.context.drawImage(img, 0, 0, ImageFile.canvas.width, ImageFile.canvas.height);
+				this.thumbdata = ImageFile.canvas.toDataURL("image/jpeg", Config.thumbnailQuality); // somewhat slow
 
 				URL.revokeObjectURL(img.src);
-
-				canvas  = null;
-				context = null;
-				img     = null;
+				img = null;
 
 				resolve();
 			}
@@ -432,17 +431,18 @@ function processNext(files, scannedFiles=null, n=0) {
 
 	Results.supportedImgCount++;
 
-	ifile.onload = function() {
-		searchForMatch(ifile, scannedFiles);
-		scannedFiles.push(ifile);
-		processNext(files, scannedFiles, n+1);
-	};
-
-	ifile.onerror = function() {
-		processNext(files, scannedFiles, n+1);
-	};
-
-	ifile.load();
+	ifile.load()
+		.then(() => {
+			searchForMatch(ifile, scannedFiles);
+			scannedFiles.push(ifile);
+		})
+		.catch((err) => {
+			console.log("*** error loading " + ifile.path);
+			console.log(err);
+		})
+		.finally(() => {
+			processNext(files, scannedFiles, n+1);
+		});
 }
 
 function searchForMatch(ifile, scannedFiles) {
