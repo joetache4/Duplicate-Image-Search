@@ -434,10 +434,12 @@ const ResultsPage = {
 
 		downloadList() {
 			const onWindows = navigator.userAgent.toLowerCase().includes("win");
-			const data = this.textareaText.join("\n");
+			const textContent = this.textareaText.join(onWindows ? "\r\n" : "\n");
+			const encoder = new TextEncoder();
+			const data = encoder.encode(textContent);
 			const ext = this.scriptState ? (onWindows ? "bat" : "sh") : "txt";
-			const filename = `selected-duplicates-${this.formatDate(new Date())}.${ext}`;
-			const type = "text/plain";
+			const filename = `${this.scriptState ? "delete" : "selected"}-duplicates-${this.formatDate(new Date())}.${ext}`;
+			const type = this.scriptState ? (onWindows ? "application/octet-stream" : "application/x-sh") : "text/plain";
 			const file = new Blob([data], {type: type});
 			if (window.navigator.msSaveOrOpenBlob) { // IE10+
 				window.navigator.msSaveOrOpenBlob(file, filename);
@@ -578,9 +580,15 @@ const ResultsPage = {
 			get() {
 				const onWindows = navigator.userAgent.toLowerCase().includes("win");
 				const text = [];
-				if (this.scriptState && !onWindows) {
-					text.push("#!/bin/bash");
-					text.push("");
+				if (this.scriptState) {
+					if (onWindows) {
+						text.push("chcp 65001 > nul"); // run script with UTF-8 encoding
+						text.push("");
+
+					} else {
+						text.push("#!/bin/bash");
+						text.push("");
+					}
 				}
 				this.$store.state.clusters.forEach(cluster => {
 					if (!this.showHighState || this.highlightedCoords.has(cluster.ID)) {
