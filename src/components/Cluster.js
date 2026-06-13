@@ -149,9 +149,9 @@ const Cluster = {
 			if (isMouseDown) {
 				if (this.direction === null) {
 					this.direction = !this.highlightedIndices.has(fileIndex);
-					this.$emit("highlight", this.direction, this.cluster.ID, fileIndex);
+					this.$emit("highlight", this.cluster.ID, fileIndex);
 				} else if (this.direction === !this.highlightedIndices.has(fileIndex)) {
-					this.$emit("highlight", this.direction, this.cluster.ID, fileIndex);
+					this.$emit("highlight", this.cluster.ID, fileIndex);
 				}
 			}
 		},
@@ -170,7 +170,7 @@ const Cluster = {
 				this.ctrlHeldOnMousedown = false;
 				if (this.direction === null) {
 					this.direction = !this.highlightedIndices.has(fileIndex);
-					this.$emit("highlight", this.direction, this.cluster.ID, fileIndex);
+					this.$emit("highlight", this.cluster.ID, fileIndex);
 				}
 			}
 		},

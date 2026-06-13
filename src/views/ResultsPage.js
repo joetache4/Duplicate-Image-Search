@@ -218,11 +218,19 @@ const ResultsPage = {
 			this.copyToClipboard(ifile.file.name);
 		},
 
-		highlightHandler(direction, clusterID, fileIndex) { // TODO 'direction' not needed
-			if (direction) {
-				if (!this.highlightedCoords.has(clusterID)) {
-					this.highlightedCoords.set(clusterID, new Set());
-				}
+		highlightHandler(clusterID, fileIndex) {
+			let doHighlight = null;
+
+			if (!this.highlightedCoords.has(clusterID)) {
+				this.highlightedCoords.set(clusterID, new Set());
+				doHighlight = true;
+			} else if (!this.highlightedCoords.get(clusterID).has(fileIndex)) {
+				doHighlight = true;
+			} else {
+				doHighlight = false;
+			}
+
+			if (doHighlight) {
 				this.highlightedCoords.get(clusterID).add(fileIndex);
 
 				this.highCount += 1;
