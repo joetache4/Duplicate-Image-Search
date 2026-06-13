@@ -373,11 +373,11 @@ const ResultsPage = {
 
 		selectObvious() {
 			// selects files that match the following criteria:
-			// 1. the filename ends with " (\d)", " (copy)", or "_\d"
-			// 2. there is another file in the same folder that exists without this suffixes
+			// 1. the filename ends with " ?(\d)", " (copy)", or "_\d"
+			// 2. there is another file in the same folder that exists without any of these suffixes
 			// 3. the other file is the same size
 			// 4. the hashes match exactly
-			const regex = /(\s\(copy(?:\s\d+)?\)|\s\(\d+\)|_\d+)(\.[^.]+)?$/;
+			const regex = /(\s\(copy(?:\s\d+)?\)|\s?\(\d+\)|_\d+)(\.[^.]+)?$/;
 			filter = (f, cluster) => {
 				const strippedName = f.file.name.replace(regex, "$2");
 				if (f.file.name == strippedName) {
