@@ -101,11 +101,11 @@ const ResultsPage = {
 		<div class="drawer-options">
 			<div class="drawer-settings">
 				<div>
-					<input type="checkbox" id="show-high-option" v-model="showHighState"><label class="noselect" for="show-high-option">Show Highlighted Only</label>
+					<input type="checkbox" id="show-high-option" v-model="showHighlightedOnly"><label class="noselect" for="show-high-option">Show Highlighted Only</label>
 				</div>
 
 				<div>
-					<input type="checkbox" id="show-hash-option" v-model="showHashState"><label class="noselect" for="show-hash-option">Show Hashes</label>
+					<input type="checkbox" id="show-hash-option" v-model="showHashes"><label class="noselect" for="show-hash-option">Show Hashes</label>
 				</div>
 
 				<div>
@@ -166,8 +166,8 @@ const ResultsPage = {
 			clusterSpanState      : "any",
 			autoCollapseState     : "none",
 			drawerOpen            : false,
-			showHighState         : false,
-			showHashState         : false,
+			showHighlightedOnly   : false,
+			showHashes            : false,
 			scriptState           : false,
 			highCount             : 0,
 			highSize              : 0,
@@ -177,8 +177,8 @@ const ResultsPage = {
 			showContextMenu       : false,
 			contextMenuClusterArg : -1,
 			contextMenuFileArg    : -1,
-			x                     : 0,
-			y                     : 0,
+			mouseX                : 0,
+			mouseY                : 0,
 		}
 	},
 
@@ -236,7 +236,7 @@ const ResultsPage = {
 				this.highCount += 1;
 				this.highSize += this.$store.state.clusters[clusterID].ifiles[fileIndex].file.size;
 				if (!this.drawerOpen && this.highCount == 1) {
-					this.showHighState = true;
+					this.showHighlightedOnly = true;
 				}
 			} else {
 				this.highlightedCoords.get(clusterID).delete(fileIndex);
@@ -244,7 +244,7 @@ const ResultsPage = {
 				this.highCount -= 1;
 				this.highSize -= this.$store.state.clusters[clusterID].ifiles[fileIndex].file.size;
 				if (!this.drawerOpen && !this.highCount) {
-					this.showHighState = false;
+					this.showHighlightedOnly = false;
 				}
 			}
 		},
@@ -310,16 +310,16 @@ const ResultsPage = {
 		thumbnailRightClickHandler(event, clusterID, fileIndex) {
 			this.contextMenuClusterArg = clusterID;
 			this.contextMenuFileArg = fileIndex;
-			this.x = event.clientX;
-			this.y = event.clientY;
+			this.mouseX = event.clientX;
+			this.mouseY = event.clientY;
 			this.showContextMenu = true;
 		},
 
 		contextmenuHandler(event) {
 			event.preventDefault();
 			event.stopPropagation();
-			this.x = event.clientX;
-			this.y = event.clientY;
+			this.mouseX = event.clientX;
+			this.mouseY = event.clientY;
 			this.showContextMenu = true;
 		},
 
@@ -599,10 +599,10 @@ const ResultsPage = {
 					}
 				}
 				this.$store.state.clusters.forEach(cluster => {
-					if (!this.showHighState || this.highlightedCoords.has(cluster.ID)) {
+					if (!this.showHighlightedOnly || this.highlightedCoords.has(cluster.ID)) {
 						let addedSome = false;
 						cluster.ifiles.forEach((ifile, fileIndex) => {
-							if (!this.showHighState || this.highlightedCoords.get(cluster.ID).has(fileIndex)) {
+							if (!this.showHighlightedOnly || this.highlightedCoords.get(cluster.ID).has(fileIndex)) {
 								addedSome = true;
 								let path = ifile.relpath;
 								if (onWindows) {
@@ -614,7 +614,7 @@ const ResultsPage = {
 									} else {
 										path = "rm \"" + path.replaceAll("\"", "\\\"") + "\"";
 									}
-								} else if (this.showHashState) {
+								} else if (this.showHashes) {
 									const hash = parseInt(ifile.hash.bitstring, 2).toString(16).padStart(16, "0");
 									path = hash + " " + path;
 								}
@@ -669,16 +669,16 @@ const ResultsPage = {
 					const windowWidth = window.innerWidth;
 					const windowHeight = window.innerHeight;
 
-					if ((this.x + menuWidth) > windowWidth) {
+					if ((this.mouseX + menuWidth) > windowWidth) {
 						contextMenu.style.left = `${windowWidth - menuWidth}px`;
 					} else {
-						contextMenu.style.left = `${this.x}px`;
+						contextMenu.style.left = `${this.mouseX}px`;
 					}
 
-					if ((this.y + menuHeight) > windowHeight) {
+					if ((this.mouseY + menuHeight) > windowHeight) {
 						contextMenu.style.top = `${windowHeight - menuHeight}px`;
 					} else {
-						contextMenu.style.top = `${this.y}px`;
+						contextMenu.style.top = `${this.mouseY}px`;
 					}
 
 					contextMenu.focus();
