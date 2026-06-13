@@ -666,17 +666,17 @@ const ResultsPage = {
 					const contextMenu = this.$refs.contextMenu;
 					const menuWidth = contextMenu.offsetWidth;
 					const menuHeight = contextMenu.offsetHeight;
-					const windowWidth = window.innerWidth;
-					const windowHeight = window.innerHeight;
+					const windowWidth = document.documentElement.clientWidth;
+					const windowHeight = document.documentElement.clientHeight;
 
-					if ((this.mouseX + menuWidth) > windowWidth) {
-						contextMenu.style.left = `${windowWidth - menuWidth}px`;
+					if ((this.mouseX + menuWidth) > windowWidth - 10) {
+						contextMenu.style.left = `${windowWidth - menuWidth - 10}px`;
 					} else {
 						contextMenu.style.left = `${this.mouseX}px`;
 					}
 
-					if ((this.mouseY + menuHeight) > windowHeight) {
-						contextMenu.style.top = `${windowHeight - menuHeight}px`;
+					if ((this.mouseY + menuHeight) > windowHeight - 10) {
+						contextMenu.style.top = `${windowHeight - menuHeight - 10}px`;
 					} else {
 						contextMenu.style.top = `${this.mouseY}px`;
 					}

@@ -102,6 +102,15 @@ label {
 	                              supported by Chrome, Edge, Opera and Firefox */
 }
 
+.no-scrollbar {
+	&::-webkit-scrollbar { /* Chrome, Safari, and Edge */
+		display: none;
+	}
+	scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* Internet Explorer */
+	overflow-y: auto;
+}
+
 
 
 /* First "page" */
@@ -427,7 +436,7 @@ a {
 .text-button.disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-	pointer-events: none; /* Prevent click events */
+	pointer-events: none;
 }
 
 #message {
@@ -617,43 +626,6 @@ u.filenameDiff {
 	transition: opacity 0.2s ease-in-out;
 }
 
-.context-menu {
-	position: fixed;
-	background: #292929;
-	border: 1px solid #999;
-	box-shadow: 2px 5px 10px rgba(0,0,0,0.15);
-	border-radius: 4px;
-	z-index: 1000;
-}
-
-.context-menu ul {
-	list-style: none;
-	padding: 5px 0;
-	margin: 0;
-}
-
-.context-menu ul li {
-	margin: 0 5px;
-	padding: 6px 12px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 12px;
-	color: #DDD;
-}
-
-.context-menu ul li:not(.separator):hover {
-	background-color: #F44;
-	color: white;
-}
-
-.context-menu .separator {
-	height: 1px;
-	background: #777;
-	margin: 4px 17px;
-	padding: 0;
-	cursor: auto;
-}
-
 /* Results Drawer */
 
 .drawer {
@@ -754,11 +726,43 @@ u.filenameDiff {
 	pointer-events: none;
 }
 
-.no-scrollbar {
-	&::-webkit-scrollbar { /* Chrome, Safari, and Edge */
-		display: none;
-	}
-	scrollbar-width: none; /* Firefox */
-	-ms-overflow-style: none; /* Internet Explorer */
-	overflow-y: auto;
+/* Context Menu */
+
+.context-menu {
+	position: fixed;
+	min-width: 120px;
+	box-sizing: border-box;
+	background: #292929;
+	border: 1px solid #999;
+	box-shadow: 2px 5px 10px rgba(0,0,0,0.15);
+	border-radius: 4px;
+	z-index: 1000;
+}
+
+.context-menu ul {
+	list-style: none;
+	padding: 5px 0;
+	margin: 0;
+}
+
+.context-menu ul li {
+	margin: 0 5px;
+	padding: 6px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 12px;
+	color: #DDD;
+}
+
+.context-menu ul li:not(.separator):hover {
+	background-color: #F44;
+	color: white;
+}
+
+.context-menu .separator {
+	height: 1px;
+	background: #777;
+	margin: 4px 17px;
+	padding: 0;
+	cursor: auto;
 }
