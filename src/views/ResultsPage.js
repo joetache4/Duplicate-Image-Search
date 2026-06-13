@@ -326,7 +326,7 @@ const ResultsPage = {
 		copyFilenameHandler() {
 			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
 			this.copyToClipboard(ifile.file.name);
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		selectSameFolderHandler() {
@@ -340,7 +340,7 @@ const ResultsPage = {
 			this.selectVisible(f => {
 				return dirname(f) == targetDirname;
 			});
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		keyDownHandler(event) {
@@ -391,7 +391,7 @@ const ResultsPage = {
 				return false;
 			}
 			this.selectVisible(filter);
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		selectVisible(filter) {
@@ -411,7 +411,7 @@ const ResultsPage = {
 				}
 			}
 			this.autoCollapseClusters();
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		selectNone() {
@@ -419,20 +419,20 @@ const ResultsPage = {
 			this.highSize = 0;
 			this.highlightedCoords.clear();
 			//this.collapseNone();
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		collapseVisible() {
 			for (const cluster of this.visibleClusters) {
 				this.collapsedClusters.add(cluster.ID);
 			}
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		collapseNone() {
 			this.autoCollapseState = "none";
 			this.collapsedClusters.clear();
-			this.$refs.contextMenu.blur();
+			this.showContextMenu = false;
 		},
 
 		copyListToClipboard() {
