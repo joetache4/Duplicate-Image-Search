@@ -87,25 +87,28 @@ const Cluster = {
 			></Thumbnail>
 		</div>
 
-		<div class="cluster-info">
-			<div
-				v-for="(ifile, fileIndex) in cluster.ifiles"
-				:key="ifile.relpath"
-				:class="{
-					'img-info': true,
-					'highlighted': highlightedIndices.has(fileIndex),
-				}"
-				:title="ifile.file.name"
-				ref="info"
-				@mouseenter="mouseenterHandler($event, fileIndex)"
-				@mouseleave ="mouseleaveHandler($event, fileIndex)"
-				@mousedown.left="mousedownHandler($event, fileIndex)"
-				@contextmenu="contextmenuHandler($event, fileIndex)"
-			>
-				<span ref="size" :class="['img-info-part', 'size', {'best-part': (parseInt(ifile.file.size/1024) == bestSize) }]">{{ parseInt(ifile.file.size/1024) }}</span>
-				<span ref="date" :class="['img-info-part', 'date', {'best-part': (formatDate(new Date(ifile.file.lastModified)) == bestDate) }]">{{ formatDate(new Date(ifile.file.lastModified)) }}</span>
-				<span ref="path" :class="['img-info-part', 'path', {'best-part': ifile.relpath.endsWith('.png')}]">{{ ifile.relpath }}</span>
+		<div class="cluster-info-panel">
+			<div class="cluster-info">
+				<div
+					v-for="(ifile, fileIndex) in cluster.ifiles"
+					:key="ifile.relpath"
+					:class="{
+						'img-info': true,
+						'highlighted': highlightedIndices.has(fileIndex),
+					}"
+					:title="ifile.file.name"
+					ref="info"
+					@mouseenter="mouseenterHandler($event, fileIndex)"
+					@mouseleave ="mouseleaveHandler($event, fileIndex)"
+					@mousedown.left="mousedownHandler($event, fileIndex)"
+					@contextmenu="contextmenuHandler($event, fileIndex)"
+				>
+					<span ref="size" :class="['img-info-part', 'size', {'best-part': (parseInt(ifile.file.size/1024) == bestSize) }]">{{ parseInt(ifile.file.size/1024) }}</span>
+					<span ref="date" :class="['img-info-part', 'date', {'best-part': (formatDate(new Date(ifile.file.lastModified)) == bestDate) }]">{{ formatDate(new Date(ifile.file.lastModified)) }}</span>
+					<span ref="path" :class="['img-info-part', 'path', {'best-part': ifile.relpath.endsWith('.png')}]">{{ ifile.relpath }}</span>
+				</div>
 			</div>
+			<div class="spacer"></div>
 		</div>
 	</div>
 </div>

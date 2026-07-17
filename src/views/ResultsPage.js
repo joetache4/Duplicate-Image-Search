@@ -56,82 +56,89 @@ const ResultsPage = {
 	</div>
 
 	<div
-		id="clustersPane"
+		id="cluster-pane"
 		@contextmenu="contextmenuHandler($event)"
 	>
+
+		<div id="cluster-message" v-show="messageText">{{ messageText }}</div>
+
+		<div class="content-panel">
+			<div
+				id="clusters"
+				class="clusters noselect"
+			>
+				<Cluster
+					v-for="(cluster, index) in $store.state.clusters"
+					v-show="clusterIsVisible(cluster)"
+					:key="cluster.ID"
+					ref="cluster"
+					:cluster="cluster"
+					:clusterIndex="index"
+					:highlightedIndices="highlightedCoords.get(index) || new Set()"
+					:collapsed="clusterIsCollapsed(cluster)"
+					@highlight="highlightHandler"
+					@select="selectHandler"
+					@toggle="toggleHandler"
+					@rightClick="thumbnailRightClickHandler"
+					@ctrlClick="thumbnailCtrlClickHandler"
+				></Cluster>
+			</div>
+
+			<ScrollToTop
+				id="cluster-scroll-button"
+				class="button noselect"
+				:scrollableID="'clusters'"
+			></ScrollToTop>
+		</div>
+
 		<div
-			id="clusters"
-			class="clusters noselect"
-			ref="allClusters"
+			:class="{
+				'sliding-panel': true,
+				open: drawerOpen,
+				noselect: !drawerOpen,
+			}"
+			tabindex="-1"
+			@keydown.ctrl.a.prevent="drawerSelectAllHandler"
 		>
-			<Cluster
-				v-for="(cluster, index) in $store.state.clusters"
-				v-show="clusterIsVisible(cluster)"
-				:key="cluster.ID"
-				ref="cluster"
-				:cluster="cluster"
-				:clusterIndex="index"
-				:highlightedIndices="highlightedCoords.get(index) || new Set()"
-				:collapsed="clusterIsCollapsed(cluster)"
-				@highlight="highlightHandler"
-				@select="selectHandler"
-				@toggle="toggleHandler"
-				@rightClick="thumbnailRightClickHandler"
-				@ctrlClick="thumbnailCtrlClickHandler"
-			></Cluster>
+			<div class="drawer">
+				<header>
+					<span class="header-spacer"></span>
+					<span class="noselect">File List</span>
+					<span class="text-button noselect" title="Close" @click="closeDrawer">✕</span>
+				</header>
+
+				<div class="drawer-options">
+					<div class="drawer-settings">
+						<div>
+							<input type="checkbox" id="show-high-option" v-model="showHighlightedOnly"><label class="noselect" for="show-high-option">Show Highlighted Only</label>
+						</div>
+
+						<div>
+							<input type="checkbox" id="show-hash-option" v-model="showHashes"><label class="noselect" for="show-hash-option">Show Hashes</label>
+						</div>
+
+						<div>
+							<input type="checkbox" id="script-option" v-model="scriptState"><label class="noselect" for="script-option">Deletion Script</label>
+						</div>
+					</div>
+
+					<div class="drawer-actions">
+						<span class="text-button noselect" @click="copyListToClipboard">{{scriptState ? "Copy Script" : "Copy List"}}</span>
+						<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
+						<span class="text-button noselect" @click="downloadList">{{scriptState ? "Download Script" : "Download List"}}</span>
+					</div>
+				</div>
+
+				<div id="output-list" class="textarea no-scrollbar" ref="textarea">
+					<div v-for="(item, index) in textareaText" :key="index" class="line">
+						<template v-if="item === ''"><br></template>
+						<template v-else>{{item}}</template>
+					</div>
+				</div>
+			</div>
+
 		</div>
 	</div>
-
-	<div
-		:class="{
-			drawer: true,
-			open: drawerOpen,
-			noselect: !drawerOpen,
-		}"
-		tabindex="-1"
-		ref="drawer"
-		@keydown.ctrl.a.prevent="drawerSelectAllHandler"
-	>
-		<header>
-			<span class="header-spacer"></span>
-			<span class="noselect">Results</span>
-			<span class="text-button noselect" title="Close" @click="closeDrawer">✕</span>
-		</header>
-
-		<div class="drawer-options">
-			<div class="drawer-settings">
-				<div>
-					<input type="checkbox" id="show-high-option" v-model="showHighlightedOnly"><label class="noselect" for="show-high-option">Show Highlighted Only</label>
-				</div>
-
-				<div>
-					<input type="checkbox" id="show-hash-option" v-model="showHashes"><label class="noselect" for="show-hash-option">Show Hashes</label>
-				</div>
-
-				<div>
-					<input type="checkbox" id="script-option" v-model="scriptState"><label class="noselect" for="script-option">Deletion Script</label>
-				</div>
-			</div>
-
-			<div class="drawer-actions">
-				<span class="text-button noselect" @click="copyListToClipboard">Copy List</span>
-				<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
-				<span class="text-button noselect" @click="downloadList">{{scriptState ? "Download Script" : "Download List"}}</span>
-			</div>
-		</div>
-
-		<div id="output-list" class="textarea no-scrollbar" ref="textarea">
-			<div v-for="(item, index) in textareaText" :key="index" class="line">
-				<template v-if="item === ''"><br></template>
-				<template v-else>{{item}}</template>
-			</div>
-		</div>
-
-	</div>
-
-	<div ref="message" id="message" v-show="messageText">{{ messageText }}</div>
-
-	<ScrollToTop class="button noselect"></ScrollToTop>
 
 	<div
 		id="context-menu"
@@ -364,7 +371,6 @@ const ResultsPage = {
 
 		openDrawer() {
 			this.drawerOpen = true;
-			this.$refs.drawer.focus();
 		},
 
 		closeDrawer() {
