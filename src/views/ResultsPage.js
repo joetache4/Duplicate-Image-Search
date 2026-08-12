@@ -64,6 +64,7 @@ const ResultsPage = {
 
 			<div
 				id="clusters"
+				ref="clusters"
 				class="clusters noselect"
 			>
 				<Cluster
@@ -154,10 +155,18 @@ const ResultsPage = {
 					</div>
 				</div>
 
-				<div id="output-list" class="textarea" ref="textarea">
-					<div v-for="(item, index) in textareaText" :key="index" class="line">
-						<template v-if="item === ''"><br></template>
-						<template v-else>{{item}}</template>
+				<div id="file-list" class="textarea" ref="textarea">
+					<div
+						v-for="(item, index) in textareaText"
+						:key="index"
+						class="line"
+					>
+						<template v-if="item[1] === ''"><br></template>
+						<template v-else>
+							<span
+								@click=scrollToCluster(item[0])
+							>{{item[1]}}</span>
+						</template>
 					</div>
 				</div>
 			</div>
@@ -519,6 +528,16 @@ const ResultsPage = {
 		clusterIsCollapsed(cluster) {
 			return this.collapsedClusters.has(cluster.ID)
 		},
+
+		scrollToCluster(clusterID) {
+			const container = this.$refs.clusters;
+			const target = document.getElementsByClassName("cluster")[clusterID];
+
+			container.scrollTo({
+				top: target.offsetTop - container.offsetTop - 30,
+				behavior: "smooth"
+			});
+		},
 	},
 
 	computed: {
@@ -621,12 +640,12 @@ const ResultsPage = {
 				const text = [];
 				if (this.scriptState) {
 					if (onWindows) {
-						text.push("chcp 65001 > nul"); // run script with UTF-8 encoding
-						text.push("");
+						text.push([-1, "chcp 65001 > nul"]); // run script with UTF-8 encoding
+						text.push([-1, ""]);
 
 					} else {
-						text.push("#!/bin/bash");
-						text.push("");
+						text.push([-1, "#!/bin/bash"]);
+						text.push([-1, ""]);
 					}
 				}
 				this.$store.state.clusters.forEach(cluster => {
@@ -649,20 +668,20 @@ const ResultsPage = {
 									const hash = parseInt(ifile.hash.bitstring, 2).toString(16).padStart(16, "0");
 									path = hash + " " + path;
 								}
-								text.push(path);
+								text.push([cluster.ID, path]);
 							}
 						});
 						if (addedSome) {
-							text.push("");
+							text.push([-1, ""]);
 						}
 					}
 				});
 				if (this.scriptState) {
 					if (onWindows) {
-						text.push("pause");
+						text.push([-1, "pause"]);
 					}
 				}
-				if (text.at(-1) == "") {
+				if (text.at(-1) !== undefined && text.at(-1)[0] == -1) {
 					text.pop();
 				}
 				return text;

@@ -757,9 +757,14 @@ u.filenameDiff {
 .textarea .line {
 	color: #EEE;
 	position: relative;
-	margin-bottom: 8px;
+	padding: 2px 1px;
 	font-family: monospace;
 	line-break: anywhere;
+}
+
+.textarea .line:hover {
+	background-color: #444;
+	cursor: pointer;
 }
 
 .textarea .line::selection {
