@@ -47,6 +47,23 @@ h2 {
 	text-align: center;
 }
 
+.icon.button {
+	font-size: 1.4em;
+	padding: 4px;
+	border-radius: 2px;
+}
+
+.icon.button.emoji-width {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.4em;
+	height: 1.4em;
+
+	/* Optional: keeps it inline with surrounding text nicely */
+	vertical-align: -0.1em;
+}
+
 .button:hover {
 	background-color: #F66;
 }
@@ -75,6 +92,34 @@ h2 {
 
 .tall.button {
 	line-height: 1.65em;
+}
+
+.off.button {
+	background-color: transparent;
+}
+
+.off.button:hover {
+	background-color: #444;
+}
+
+.monochrome {
+	filter: grayscale(100%);
+	contrast(150%);
+}
+
+.text-button {
+	color: #F44;
+	cursor: pointer;
+}
+
+.text-button:hover {
+	color: #F66;
+}
+
+.text-button.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	pointer-events: none;
 }
 
 input[type="checkbox"] {
@@ -365,23 +410,38 @@ a {
 }
 
 .header {
-	position: sticky;
-	top: 0;
 	width: 100%;
-	min-width: 700px;
-	height: 130px;
-}
-
-.header-title {
-	height: 54px;
 	background-color: #444;
 }
 
-.header-title > h1 {
+.title-header {
+	min-width: 700px;
+	height: 55px;
+}
+
+.title-header > h1 {
 	font-size: 28px;
 	line-height: 54px;
 	display: inline-block;
 	margin-left: 16px;
+}
+
+.panel-header {
+	box-sizing: border-box;
+	height: 80px;
+	padding: 2px 16px 2px;
+	border-bottom: 1px solid #555;
+	background-color: #333;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-around;;
+}
+
+.header-strip {
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	justify-content: space-between;
 }
 
 .search-buttons {
@@ -390,12 +450,6 @@ a {
 
 .search-buttons > .button {
 	margin: 12px;
-}
-
-#header-content {
-	padding: 16px 16px 8px;
-	border-bottom: 1px solid #555;
-	background-color: #333;
 }
 
 .progress {
@@ -426,38 +480,30 @@ a {
 
 .progress-text {
 	white-space: nowrap;
-	height: 30px;
 }
 
-.text-button {
-	color: #F44;
-	cursor: pointer;
-}
-
-.text-button.disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-	pointer-events: none;
-}
-
-#cluster-pane {
+#results-content {
 	position: relative;
 	display: flex;
 	flex-direction: row;
 	width: 100%;
-	height: calc(100vh - 130px);
+	height: calc(100vh - 55px);
 	overflow: hidden;
 }
 
-#cluster-pane .content-panel {
-	position: relative;
+.panel {
 	height: 100%;
+	box-sizing: border-box;
+	position: relative;
+}
+
+#results-content .panel:not(.sliding-panel) {
 	flex: 1;
 }
 
 #clusters {
-	height: 100%;
-	padding: 50px 0;
+	height: calc(100% - 80px);
+	padding: 30px 0;
 	box-sizing: border-box;
 	overflow-y: auto;
 	display: flex;
@@ -661,35 +707,21 @@ u.filenameDiff {
 	box-sizing: border-box;
 	overflow: hidden;
 	transition: all 0.3s ease;
-	background-color: #282828;
 	box-shadow: -5px 0 15px rgba(0,0,0,0.1);
 	z-index: 10;
 }
 
 .sliding-panel.open {
 	width: 400px;
+	border-left: 1px solid #555;
 }
 
 .drawer {
 	box-sizing: border-box;
 	width: 400px;
 	height: 100%;
-	padding: 5px;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
-}
-
-.drawer header {
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	font-size: 1.5em;
-
-	height: 54px;
-	font-size: 28px;
-	line-height: 54px;
-	padding: 0 12px;
 }
 
 .drawer-options {
@@ -705,8 +737,7 @@ u.filenameDiff {
 	flex: 1;
 	width: 100%;
 	max-width: 100%;
-	background-color: #444;
-	border: 1px solid #777;
+	background-color: #292929;
 	padding: 15px 15px 15px 35px;
 	box-sizing: border-box;
 	font-size: 0.8em;

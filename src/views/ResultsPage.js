@@ -6,63 +6,62 @@ const ResultsPage = {
 	tabindex="-1"
 	@keydown="keyDownHandler"
 > <!-- tabindex needed to receive keydown events -->
-	<div class="header">
 
-		<div class="header-title">
-			<h1>Duplicate Image Search</h1>
-			<div class="search-buttons">
-				<div id="button-pause-search" class="button noselect" v-show="isRunning || isPaused" @click="togglePause">
-					{{ isPaused ? "Resume" : "Pause" }}
-				</div>
-				<div class="button noselect" @click="reloadPage">New Search</div>
+	<div class="header title-header">
+		<h1>Duplicate Image Search</h1>
+		<div class="search-buttons">
+			<div id="button-pause-search" class="button noselect" v-show="isRunning || isPaused" @click="togglePause">
+				{{ isPaused ? "Resume" : "Pause" }}
 			</div>
-		</div>
-
-		<div id="header-content">
-			<div class="progress">
-				<div class="progress-bar" v-show="isRunning || isPaused">
-					<div ref="progressBar" id="progress-bar-inner"></div>
-				</div>
-				<div class="progress-text">{{ progressText }}</div>
-			</div>
-
-			<div>
-				<span
-					:class="{
-						'text-button': true,
-						noselect: true,
-						disabled: drawerOpen
-					}"
-					@click="openDrawer"
-				>List Files</span>
-
-				<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
-				<span class="noselect">Cluster Span: </span>
-				<select name="folder-count" id="folder-count" v-model="clusterSpanState">
-					<option value="any" default>Any</option>
-					<option value="single">Single Folder</option>
-					<option value="multiple">Multiple Folders</option>
-				</select>
-
-				<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
-				<span class="noselect">Auto-Collapse: </span>
-				<select name="auto-collapse" id="auto-collapse" v-model="autoCollapseState">
-					<option value="none" default>-</option>
-					<option value="any">Any Selected</option>
-					<option value="almost-all">All But 1 Selected</option>
-				</select>
-			</div>
+			<div class="button noselect" @click="reloadPage">New Search</div>
 		</div>
 	</div>
 
-	<div
-		id="cluster-pane"
-		@contextmenu="contextmenuHandler($event)"
-	>
+	<div id="results-content">
 
 		<div id="cluster-message" v-show="messageText">{{ messageText }}</div>
 
-		<div class="content-panel">
+		<div
+			class="panel"
+			@contextmenu="contextmenuHandler($event)"
+		>
+
+			<div class="panel-header">
+				<div class="progress">
+					<div class="progress-bar" v-show="isRunning || isPaused">
+						<div ref="progressBar" id="progress-bar-inner"></div>
+					</div>
+					<div class="progress-text">{{ progressText }}</div>
+				</div>
+
+				<div>
+					<span
+						:class="{
+							'text-button': true,
+							noselect: true,
+							disabled: drawerOpen
+						}"
+						@click="openDrawer"
+					>List Files</span>
+
+					<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
+					<span class="noselect">Cluster Span: </span>
+					<select name="folder-count" id="folder-count" v-model="clusterSpanState">
+						<option value="any" default>Any</option>
+						<option value="single">Single Folder</option>
+						<option value="multiple">Multiple Folders</option>
+					</select>
+
+					<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
+					<span class="noselect">Auto-Collapse: </span>
+					<select name="auto-collapse" id="auto-collapse" v-model="autoCollapseState">
+						<option value="none" default>-</option>
+						<option value="any">Any Selected</option>
+						<option value="almost-all">All But 1 Selected</option>
+					</select>
+				</div>
+			</div>
+
 			<div
 				id="clusters"
 				class="clusters noselect"
@@ -92,8 +91,8 @@ const ResultsPage = {
 		</div>
 
 		<div
+			class="panel sliding-panel"
 			:class="{
-				'sliding-panel': true,
 				open: drawerOpen,
 				noselect: !drawerOpen,
 			}"
@@ -101,35 +100,61 @@ const ResultsPage = {
 			@keydown.ctrl.a.prevent="drawerSelectAllHandler"
 		>
 			<div class="drawer">
-				<header>
-					<span class="header-spacer"></span>
-					<span class="noselect">File List</span>
-					<span class="text-button noselect" title="Close" @click="closeDrawer">✕</span>
-				</header>
-
-				<div class="drawer-options">
-					<div class="drawer-settings">
-						<div>
-							<input type="checkbox" id="show-high-option" v-model="showHighlightedOnly"><label class="noselect" for="show-high-option">Show Highlighted Only</label>
-						</div>
-
-						<div>
-							<input type="checkbox" id="show-hash-option" v-model="showHashes"><label class="noselect" for="show-hash-option">Show Hashes</label>
-						</div>
-
-						<div>
-							<input type="checkbox" id="script-option" v-model="scriptState"><label class="noselect" for="script-option">Deletion Script</label>
-						</div>
+				<div class="panel-header">
+					<div class="header-strip">
+						<span></span>
+						<span>
+							<span
+								class="icon button off noselect emoji-width"
+								title="Close"
+								@click="closeDrawer"
+							>✕</span>
+						</span>
 					</div>
 
-					<div class="drawer-actions">
-						<span class="text-button noselect" @click="copyListToClipboard">{{scriptState ? "Copy Script" : "Copy List"}}</span>
-						<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
-						<span class="text-button noselect" @click="downloadList">{{scriptState ? "Download Script" : "Download List"}}</span>
+					<div class="header-strip">
+						<span>
+							<div
+								class="icon button noselect"
+								:class="{off: !showHighlightedOnly}"
+								id="show-high-option"
+								title="Show Highlighted Only"
+								@click="showHighlightedOnly = !showHighlightedOnly"
+							><span class="monochrome">🖍️</span></div>
+							<div
+								class="icon button noselect"
+								:class="{off: !showHashes}"
+								id="show-hash-option"
+								title="Show Hashes"
+								@click="showHashes = !showHashes"
+							><span class="monochrome">ℹ️</span></div>
+							<div
+								class="icon button noselect"
+								:class="{off: !scriptState}"
+								id="script-option"
+								title="Deletion Script"
+								@click="scriptState = !scriptState"
+							><span class="monochrome">💻</span></div>
+						</span>
+
+						<span>
+							<div
+								class="icon button off noselect"
+								id="copy-action"
+								:title="scriptState ? 'Copy Script' : 'Copy List'"
+								@click="copyListToClipboard"
+							><span class="monochrome">📋</span></div>
+							<div
+								class="icon button off noselect"
+								id="download-action"
+								:title="scriptState ? 'Download Script' : 'Download List'"
+								@click="downloadList"
+							><span class="monochrome">⏬</span></div>
+						</span>
 					</div>
 				</div>
 
-				<div id="output-list" class="textarea no-scrollbar" ref="textarea">
+				<div id="output-list" class="textarea" ref="textarea">
 					<div v-for="(item, index) in textareaText" :key="index" class="line">
 						<template v-if="item === ''"><br></template>
 						<template v-else>{{item}}</template>
