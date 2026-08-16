@@ -767,9 +767,19 @@ u.filenameDiff {
 	cursor: pointer;
 }
 
+.textarea .line.highlighted:hover {
+	background-color: #F55;
+	cursor: pointer;
+}
+
 .textarea .line::selection {
-	color: white;
-	background-color: #F44;
+	color: black;
+	background-color: white;
+}
+
+.textarea .line.highlighted::selection {
+	color: black;
+	background-color: white;
 }
 
 .textarea .line::before {

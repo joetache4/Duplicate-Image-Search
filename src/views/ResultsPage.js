@@ -68,13 +68,12 @@ const ResultsPage = {
 				class="clusters noselect"
 			>
 				<Cluster
-					v-for="(cluster, index) in $store.state.clusters"
+					v-for="cluster in $store.state.clusters"
 					v-show="clusterIsVisible(cluster)"
 					:key="cluster.ID"
 					ref="cluster"
 					:cluster="cluster"
-					:clusterIndex="index"
-					:highlightedIndices="highlightedCoords.get(index) || new Set()"
+					:highlightedIndices="highlightedCoords.get(cluster.ID) || new Set()"
 					:collapsed="clusterIsCollapsed(cluster)"
 					@highlight="highlightHandler"
 					@select="selectHandler"
@@ -157,15 +156,63 @@ const ResultsPage = {
 
 				<div id="file-list" class="textarea" ref="textarea">
 					<div
-						v-for="(item, index) in textareaText"
+						v-for="(line, index) in scriptHeader"
 						:key="index"
 						class="line"
 					>
-						<template v-if="item[1] === ''"><br></template>
+						<template
+							v-if="line !== ''"
+						>
+							{{line}}
+						</template>
 						<template v-else>
-							<span
-								@click=scrollToCluster(item[0])
-							>{{item[1]}}</span>
+							<br>
+						</template>
+					</div>
+
+					<template
+						v-for="(cluster, id) in $store.state.clusters"
+						:key="id"
+					>
+						<div
+							v-if="!showHighlightedOnly || highlightedCoords.has(cluster.ID)"
+						>
+							<template
+								v-for="(ifile, fileIndex) in cluster.ifiles"
+								:key="fileIndex"
+							>
+								<div
+									v-if="!showHighlightedOnly || highlightedCoords.get(cluster.ID).has(fileIndex)"
+									class="line"
+									:class="{
+										highlighted: highlightedCoords.get(cluster.ID)?.has(fileIndex) ?? false
+									}"
+									@click.exact="highlightHandler(cluster.ID, fileIndex)"
+									@click.alt=scrollToCluster(cluster.ID)
+									@click.ctrl=thumbnailCtrlClickHandler(ifile)
+								>
+									{{formatFileListLine(ifile)}}
+								</div>
+							</template>
+							<div
+								v-if="cluster.ID < maxVisibleCluster"
+								class="line"
+							><br></div>
+						</div>
+					</template>
+
+					<div
+						v-for="(line, index) in scriptFooter"
+						:key="index"
+						class="line"
+					>
+						<template
+							v-if="line !== ''"
+						>
+							{{line}}
+						</template>
+						<template v-else>
+							<br>
 						</template>
 					</div>
 				</div>
@@ -204,6 +251,8 @@ const ResultsPage = {
 
 	data() {
 		return {
+			onWindows : navigator.userAgent.toLowerCase().includes("win"),
+
 			clusterSpanState      : "any",
 			autoCollapseState     : "none",
 			drawerOpen            : false,
@@ -475,14 +524,15 @@ const ResultsPage = {
 			this.showContextMenu = false;
 		},
 
-		copyListToClipboard() {
-			const data = this.textareaText.join("\n");
-			this.copyToClipboard(data);
+		copyListToClipboardHandler() {
+			const onWindows = navigator.userAgent.toLowerCase().includes("win");
+			const textContent = this.$refs.textarea.innerText.replace(/(\r?\n){3,}/g, onWindows ? "\r\n\r\n" : "\n\n") + (onWindows ? "\r\n" : "\n");
+			this.copyToClipboard(textContent);
 		},
 
 		downloadList() {
 			const onWindows = navigator.userAgent.toLowerCase().includes("win");
-			const textContent = this.textareaText.join(onWindows ? "\r\n" : "\n");
+			const textContent = this.$refs.textarea.innerText.replace(/(\r?\n){3,}/g, onWindows ? "\r\n\r\n" : "\n\n") + (onWindows ? "\r\n" : "\n");
 			const encoder = new TextEncoder();
 			const data = encoder.encode(textContent);
 			const ext = this.scriptState ? (onWindows ? "bat" : "sh") : "txt";
@@ -538,9 +588,53 @@ const ResultsPage = {
 				behavior: "smooth"
 			});
 		},
+
+		formatFileListLine(ifile) {
+			let path = ifile.relpath;
+			if (this.onWindows) {
+				path = path.replaceAll("/", "\\");
+			}
+			if (this.scriptState) {
+				if (this.onWindows) {
+					path = "del \"" + path.replaceAll("\"", "\\\"") + "\"";
+				} else {
+					path = "rm \"" + path.replaceAll("\"", "\\\"") + "\"";
+				}
+			} else if (this.showHashes) {
+				const hash = parseInt(ifile.hash.bitstring, 2).toString(16).padStart(16, "0");
+				path = hash + " " + path;
+			}
+			return path
+		},
 	},
 
 	computed: {
+		scriptHeader() {
+			const text = [];
+			if (this.scriptState) {
+				if (this.onWindows) {
+					text.push("chcp 65001 > nul"); // run script with UTF-8 encoding
+					text.push("");
+
+				} else {
+					text.push("#!/bin/bash");
+					text.push("");
+				}
+			}
+			return text
+		},
+
+		scriptFooter() {
+			const text = [];
+			if (this.scriptState) {
+				if (this.onWindows) {
+					text.push("");
+					text.push("pause");
+				}
+			}
+			return text
+		},
+
 		visibleClusters() {
 			if (this.clusterSpanState == "any") {
 				return this.$store.state.clusters;
@@ -562,6 +656,14 @@ const ResultsPage = {
 			return this.$store.state.clusters.filter(cluster => {
 				return clusterSpan(cluster) == this.clusterSpanState;
 			});
+		},
+
+		maxVisibleCluster() {
+			if (this.showHighlightedOnly) {
+				return Math.max(...this.highlightedCoords.keys());
+			} else {
+				return this.$store.state.clusters.length - 1;
+			}
 		},
 
 		isInitializing() {
@@ -631,64 +733,6 @@ const ResultsPage = {
 				}
 			} else {
 				return "";
-			}
-		},
-
-		textareaText: {
-			get() {
-				const onWindows = navigator.userAgent.toLowerCase().includes("win");
-				const text = [];
-				if (this.scriptState) {
-					if (onWindows) {
-						text.push([-1, "chcp 65001 > nul"]); // run script with UTF-8 encoding
-						text.push([-1, ""]);
-
-					} else {
-						text.push([-1, "#!/bin/bash"]);
-						text.push([-1, ""]);
-					}
-				}
-				this.$store.state.clusters.forEach(cluster => {
-					if (!this.showHighlightedOnly || this.highlightedCoords.has(cluster.ID)) {
-						let addedSome = false;
-						cluster.ifiles.forEach((ifile, fileIndex) => {
-							if (!this.showHighlightedOnly || this.highlightedCoords.get(cluster.ID).has(fileIndex)) {
-								addedSome = true;
-								let path = ifile.relpath;
-								if (onWindows) {
-									path = path.replaceAll("/", "\\");
-								}
-								if (this.scriptState) {
-									if (onWindows) {
-										path = "del \"" + path.replaceAll("\"", "\\\"") + "\"";
-									} else {
-										path = "rm \"" + path.replaceAll("\"", "\\\"") + "\"";
-									}
-								} else if (this.showHashes) {
-									const hash = parseInt(ifile.hash.bitstring, 2).toString(16).padStart(16, "0");
-									path = hash + " " + path;
-								}
-								text.push([cluster.ID, path]);
-							}
-						});
-						if (addedSome) {
-							text.push([-1, ""]);
-						}
-					}
-				});
-				if (this.scriptState) {
-					if (onWindows) {
-						text.push([-1, "pause"]);
-					}
-				}
-				if (text.at(-1) !== undefined && text.at(-1)[0] == -1) {
-					text.pop();
-				}
-				return text;
-			},
-			set(val) {
-				// readonly
-				return;
 			}
 		},
 	},

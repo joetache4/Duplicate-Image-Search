@@ -47,7 +47,7 @@ function pathDiff(path1, path2) {
 }
 
 const Cluster = {
-	props: ["cluster", "clusterIndex", "highlightedIndices", "collapsed"],
+	props: ["cluster", "highlightedIndices", "collapsed"],
 
 	template: `
 <div
@@ -66,7 +66,7 @@ const Cluster = {
 		}"
 		@click="toggleCluster"
 	>
-		{{ clusterIndex + 1 }}
+		{{ cluster.ID + 1 }}
 	</div>
 	<div ref="clusterContent" class="cluster-content" @mouseup.left="mouseUpHandler">
 		<div class="cluster-imgs">
