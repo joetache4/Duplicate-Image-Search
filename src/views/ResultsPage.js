@@ -81,7 +81,8 @@ const ResultsPage = {
 					@toggle="toggleHandler"
 					@rightClick="thumbnailRightClickHandler"
 					@ctrlClick="thumbnailCtrlClickHandler"
-					@hover="(on, clusterID, fileIndex) => hoverHandler(on, clusterID, fileIndex)"
+					@shiftClick="highlightRange"
+					@hover="hoverHandler"
 				></Cluster>
 			</div>
 
@@ -156,7 +157,7 @@ const ResultsPage = {
 					</div>
 				</div>
 
-				<div id="file-list" class="textarea" ref="textarea">
+				<div id="file-list" class="textarea noselect" ref="textarea">
 					<div
 						v-for="(line, index) in scriptHeader"
 						:key="index"
@@ -190,9 +191,10 @@ const ResultsPage = {
 										highlighted: highlightedCoords.get(cluster.ID)?.has(fileIndex) ?? false,
 										hovered: cluster.ID == hoveredCluster && fileIndex == hoveredFileIndex,
 									}"
-									@click.exact="highlightHandler(cluster.ID, fileIndex)"
+									@click.exact="highlightHandler(cluster.ID, fileIndex); selectHandler(cluster)"
 									@click.alt=scrollToCluster(cluster.ID)
 									@click.ctrl=thumbnailCtrlClickHandler(ifile)
+									@click.shift="highlightRange(cluster.ID, fileIndex)"
 									@mouseenter="hoverHandler(true, cluster.ID, fileIndex)"
 									@mouseleave ="hoverHandler(false, null, null)"
 								>
@@ -236,9 +238,9 @@ const ResultsPage = {
 	>
 		<template v-if="contextMenuClusterArg === -1">
 			<ul>
-				<li @click="selectObvious">Select Obvious</li>
-				<li @click="selectVisible(null)">Select All</li>
-				<li @click="selectNone">Select None</li>
+				<li @click="highlightObvious">Select Obvious</li>
+				<li @click="highlightAll">Select All</li>
+				<li @click="highlightNone">Select None</li>
 				<li class="separator noselect" />
 				<li @click="collapseVisible">Collapse All</li>
 				<li @click="collapseNone">Expand All</li>
@@ -271,6 +273,8 @@ const ResultsPage = {
 			collapsedClusters     : new Set(), // might be more performant to have a Map: index -> collapsedState (bool)
 			hoveredCluster        : null,
 			hoveredFileIndex      : null,
+			lastSelectedCluster   : null,
+			lastSelectedFileIndex : null,
 			showContextMenu       : false,
 			contextMenuClusterArg : -1,
 			contextMenuFileArg    : -1,
@@ -316,6 +320,9 @@ const ResultsPage = {
 		},
 
 		highlightHandler(clusterID, fileIndex) {
+			this.lastSelectedCluster = clusterID;
+			this.lastSelectedFileIndex = fileIndex;
+
 			let doHighlight = null;
 
 			if (!this.highlightedCoords.has(clusterID)) {
@@ -342,6 +349,47 @@ const ResultsPage = {
 				this.highSize -= this.$store.state.clusters[clusterID].ifiles[fileIndex].file.size;
 				if (!this.drawerOpen && !this.highCount) {
 					this.showHighlightedOnly = false;
+				}
+			}
+		},
+
+		highlightRange(clusterID, fileIndex) {
+			if (this.lastSelectedCluster === null || this.lastSelectedFileIndex === null) {
+					this.highlightHandler(clusterID, fileIndex);
+
+			} else {
+				const endpointState1 = this.highlightedCoords.get(this.lastSelectedCluster)?.has(this.lastSelectedFileIndex) ?? false;
+				const endpointState2 = this.highlightedCoords.get(clusterID)?.has(fileIndex) ?? false;
+
+				if (endpointState1 == endpointState2) {
+					this.highlightHandler(clusterID, fileIndex);
+
+				} else {
+					let startRow = clusterID;
+					let startCol = fileIndex;
+					let endRow = this.lastSelectedCluster;
+					let endCol = this.lastSelectedFileIndex;
+
+					const end1BeforeEnd2 = (startRow < endRow) || (endRow === startRow && startCol <= endCol);
+
+					if (!end1BeforeEnd2) {
+						startRow = this.lastSelectedCluster;
+						startCol = this.lastSelectedFileIndex;
+						endRow = clusterID;
+						endCol = fileIndex;
+					}
+
+					const filter = (cluster, fi, f) => {
+						if (fi === undefined) {
+							return cluster.ID >= startRow && cluster.ID <= endRow;
+						}
+						const targetAfterStart = (cluster.ID > startRow) || (cluster.ID === startRow && fi >= startCol);
+						const targetBeforeEnd = (cluster.ID < endRow) || (cluster.ID === endRow && fi <= endCol);
+						return targetAfterStart && targetBeforeEnd;
+					}
+
+					this.highlightMultiple(filter, !endpointState2);
+					this.showContextMenu = false;
 				}
 			}
 		},
@@ -444,7 +492,10 @@ const ResultsPage = {
 			}
 			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
 			const targetDirname = dirname(ifile)
-			this.selectVisible(f => {
+			this.highlightMultiple((cluster, fileIndex, f) => {
+				if (fileIndex === undefined) {
+					return true;
+				}
 				return dirname(f) == targetDirname;
 			});
 			this.showContextMenu = false;
@@ -477,14 +528,17 @@ const ResultsPage = {
 			this.drawerOpen = false;
 		},
 
-		selectObvious() {
+		highlightObvious() {
 			// selects files that match the following criteria:
 			// 1. the filename ends with " ?(\d)", " (copy)", or "_\d"
 			// 2. there is another file in the same folder that exists without any of these suffixes
 			// 3. the other file is the same size
 			// 4. the hashes match exactly
 			const regex = /(\s\(copy(?:\s\d+)?\)|\s?\(\d+\)|_\d+)(\.[^.]+)?$/;
-			filter = (f, cluster) => {
+			filter = (cluster, fileIndex, f) => {
+				if (fileIndex === undefined) {
+					return true;
+				}
 				const strippedName = f.file.name.replace(regex, "$2");
 				if (f.file.name == strippedName) {
 					return false;
@@ -496,22 +550,34 @@ const ResultsPage = {
 				}
 				return false;
 			}
-			this.selectVisible(filter);
+			this.highlightMultiple(filter);
 			this.showContextMenu = false;
 		},
 
-		selectVisible(filter) {
+		highlightMultiple(filter, highlight=true) {
+			isFunction = typeof highlight === "function";
 			for (const cluster of this.visibleClusters) {
 				if (!this.highlightedCoords.has(cluster.ID)) {
 					this.highlightedCoords.set(cluster.ID, new Set());
 				}
-				const highlightedFileIndices = this.highlightedCoords.get(cluster.ID);
-				for (const [imageIndex, ifile] of cluster.ifiles.entries()) {
-					if (!highlightedFileIndices.has(imageIndex)) {
-						if (!filter || (filter.length==1 && filter(ifile)) || (filter.length==2 && filter(ifile, cluster))) {
-							this.highCount += 1;
-							this.highSize += ifile.file.size;
-							highlightedFileIndices.add(imageIndex);
+				if (!filter || filter(cluster)) {
+					const highlightedFileIndices = this.highlightedCoords.get(cluster.ID);
+					for (const [imageIndex, ifile] of cluster.ifiles.entries()) {
+						if (!filter || filter(cluster, imageIndex, ifile)) {
+							doHighlight = isFunction ? highlight(cluster, imageIndex, ifile) : highlight;
+							if (doHighlight) {
+								if (!highlightedFileIndices.has(imageIndex)) {
+									this.highCount += 1;
+									this.highSize += ifile.file.size;
+									highlightedFileIndices.add(imageIndex);
+								}
+							} else {
+								if (highlightedFileIndices.has(imageIndex)) {
+									this.highCount -= 1;
+									this.highSize -= ifile.file.size;
+									highlightedFileIndices.delete(imageIndex);
+								}
+							}
 						}
 					}
 				}
@@ -520,7 +586,12 @@ const ResultsPage = {
 			this.showContextMenu = false;
 		},
 
-		selectNone() {
+		highlightAll() {
+			this.highlightMultiple(null, true);
+			this.showContextMenu = false;
+		},
+
+		highlightNone() {
 			this.highCount = 0;
 			this.highSize = 0;
 			this.highlightedCoords.clear();

@@ -118,8 +118,8 @@ const Cluster = {
 
 	data() {
 		return {
-			direction           : null,
-			ctrlHeldOnMousedown : false,
+			direction               : null,
+			modifierHeldOnMousedown : false,
 		}
 	},
 
@@ -167,10 +167,14 @@ const Cluster = {
 		mousedownHandler(event, fileIndex) {
 			if (event.ctrlKey) {
 				event.stopPropagation();
-				this.ctrlHeldOnMousedown = true;
+				this.modifierHeldOnMousedown = true;
 				this.$emit("ctrlClick", this.cluster.ifiles[fileIndex]);
+			} else if (event.shiftKey) {
+				event.stopPropagation();
+				this.modifierHeldOnMousedown = true;
+				this.$emit("shiftClick", this.cluster.ID, fileIndex);
 			} else {
-				this.ctrlHeldOnMousedown = false;
+				this.modifierHeldOnMousedown = false;
 				if (this.direction === null) {
 					this.direction = !this.highlightedIndices.has(fileIndex);
 					this.$emit("highlight", this.cluster.ID, fileIndex);
@@ -179,7 +183,7 @@ const Cluster = {
 		},
 
 		mouseUpHandler() {
-			if (!this.ctrlHeldOnMousedown) {
+			if (!this.modifierHeldOnMousedown) {
 				this.$emit("select", this.cluster);
 			}
 		},
