@@ -75,11 +75,13 @@ const ResultsPage = {
 					:cluster="cluster"
 					:highlightedIndices="highlightedCoords.get(cluster.ID) || new Set()"
 					:collapsed="clusterIsCollapsed(cluster)"
+					:hoveredFileIndex="cluster.ID == hoveredCluster ? hoveredFileIndex : null"
 					@highlight="highlightHandler"
 					@select="selectHandler"
 					@toggle="toggleHandler"
 					@rightClick="thumbnailRightClickHandler"
 					@ctrlClick="thumbnailCtrlClickHandler"
+					@hover="(on, clusterID, fileIndex) => hoverHandler(on, clusterID, fileIndex)"
 				></Cluster>
 			</div>
 
@@ -185,11 +187,14 @@ const ResultsPage = {
 									v-if="!showHighlightedOnly || highlightedCoords.get(cluster.ID).has(fileIndex)"
 									class="line"
 									:class="{
-										highlighted: highlightedCoords.get(cluster.ID)?.has(fileIndex) ?? false
+										highlighted: highlightedCoords.get(cluster.ID)?.has(fileIndex) ?? false,
+										hovered: cluster.ID == hoveredCluster && fileIndex == hoveredFileIndex,
 									}"
 									@click.exact="highlightHandler(cluster.ID, fileIndex)"
 									@click.alt=scrollToCluster(cluster.ID)
 									@click.ctrl=thumbnailCtrlClickHandler(ifile)
+									@mouseenter="hoverHandler(true, cluster.ID, fileIndex)"
+									@mouseleave ="hoverHandler(false, null, null)"
 								>
 									{{formatFileListLine(ifile)}}
 								</div>
@@ -264,6 +269,8 @@ const ResultsPage = {
 			messageText           : "",
 			highlightedCoords     : new Map(),
 			collapsedClusters     : new Set(), // might be more performant to have a Map: index -> collapsedState (bool)
+			hoveredCluster        : null,
+			hoveredFileIndex      : null,
 			showContextMenu       : false,
 			contextMenuClusterArg : -1,
 			contextMenuFileArg    : -1,
@@ -336,6 +343,16 @@ const ResultsPage = {
 				if (!this.drawerOpen && !this.highCount) {
 					this.showHighlightedOnly = false;
 				}
+			}
+		},
+
+		hoverHandler(on, clusterID, fileIndex) {
+			if (on) {
+				this.hoveredCluster = clusterID;
+				this.hoveredFileIndex = fileIndex;
+			} else{
+				this.hoveredCluster = null;
+				this.hoveredFileIndex = null;
 			}
 		},
 

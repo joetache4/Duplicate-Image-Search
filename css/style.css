@@ -760,16 +760,15 @@ u.filenameDiff {
 	padding: 2px 1px;
 	font-family: monospace;
 	line-break: anywhere;
+	cursor: pointer;
 }
 
-.textarea .line:hover {
+.textarea .line.hovered {
 	background-color: #444;
-	cursor: pointer;
 }
 
-.textarea .line.highlighted:hover {
+.textarea .line.highlighted.hovered {
 	background-color: #F55;
-	cursor: pointer;
 }
 
 .textarea .line::selection {

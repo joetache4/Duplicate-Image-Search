@@ -47,7 +47,7 @@ function pathDiff(path1, path2) {
 }
 
 const Cluster = {
-	props: ["cluster", "highlightedIndices", "collapsed"],
+	props: ["cluster", "highlightedIndices", "collapsed", "hoveredFileIndex"],
 
 	template: `
 <div
@@ -76,7 +76,8 @@ const Cluster = {
 				:ifile="ifile"
 				:class="{
 					'div-img': true,
-					'highlighted': highlightedIndices.has(fileIndex),
+					highlighted: highlightedIndices.has(fileIndex),
+					hovered: fileIndex == hoveredFileIndex,
 				}"
 				:title="ifile.file.name"
 				ref="imgs"
@@ -94,7 +95,8 @@ const Cluster = {
 					:key="ifile.relpath"
 					:class="{
 						'img-info': true,
-						'highlighted': highlightedIndices.has(fileIndex),
+						highlighted: highlightedIndices.has(fileIndex),
+						hovered: fileIndex == hoveredFileIndex,
 					}"
 					:title="ifile.file.name"
 					ref="info"
@@ -146,8 +148,7 @@ const Cluster = {
 		},
 
 		mouseenterHandler(event, fileIndex) {
-			this.$refs.info[fileIndex].classList.add("hovered");
-			this.$refs.imgs[fileIndex].$el.classList.add("hovered");
+			this.$emit("hover", true, this.cluster.ID, fileIndex);
 			const isMouseDown = event.buttons == 1;
 			if (isMouseDown) {
 				if (this.direction === null) {
@@ -160,8 +161,7 @@ const Cluster = {
 		},
 
 		mouseleaveHandler(event, fileIndex) {
-			this.$refs.info[fileIndex].classList.remove("hovered");
-			this.$refs.imgs[fileIndex].$el.classList.remove("hovered");
+			this.$emit("hover", false);
 		},
 
 		mousedownHandler(event, fileIndex) {
