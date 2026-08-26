@@ -184,12 +184,12 @@ const Cluster = {
 
 		mouseUpHandler() {
 			if (!this.modifierHeldOnMousedown) {
-				this.$emit("select", this.cluster);
+				this.$emit("highlightEnd", this.cluster);
 			}
 		},
 
 		toggleCluster() {
-			this.$emit("toggle", this.cluster.ID);
+			this.$emit("toggleCollapse", this.cluster.ID);
 		},
 
 		contextmenuHandler(event, fileIndex) {

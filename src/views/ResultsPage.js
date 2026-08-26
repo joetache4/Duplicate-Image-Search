@@ -10,7 +10,7 @@ const ResultsPage = {
 	<div class="header title-header">
 		<h1>Duplicate Image Search</h1>
 		<div class="search-buttons">
-			<div id="button-pause-search" class="button noselect" v-show="isRunning || isPaused" @click="togglePause">
+			<div id="button-pause-search" class="button noselect" v-show="isRunning || isPaused" @click="togglePauseHandler">
 				{{ isPaused ? "Resume" : "Pause" }}
 			</div>
 			<div class="button noselect" @click="reloadPage">New Search</div>
@@ -41,7 +41,7 @@ const ResultsPage = {
 							noselect: true,
 							disabled: drawerOpen
 						}"
-						@click="openDrawer"
+						@click="openDrawerHandler"
 					>List Files</span>
 
 					<span class="noselect">&nbsp;&nbsp;—&nbsp;&nbsp;</span>
@@ -77,11 +77,11 @@ const ResultsPage = {
 					:collapsed="clusterIsCollapsed(cluster)"
 					:hoveredFileIndex="cluster.ID == hoveredCluster ? hoveredFileIndex : null"
 					@highlight="highlightHandler"
-					@select="selectHandler"
-					@toggle="toggleHandler"
-					@rightClick="thumbnailRightClickHandler"
-					@ctrlClick="thumbnailCtrlClickHandler"
-					@shiftClick="highlightRange"
+					@highlightEnd="highlightEndHandler"
+					@toggleCollapse="toggleCollapseHandler"
+					@rightClick="openThumbnailContextMenuHandler"
+					@ctrlClick="thumbnailCopyNameHandler"
+					@shiftClick="highlightRangeHandler"
 					@hover="hoverHandler"
 				></Cluster>
 			</div>
@@ -110,7 +110,7 @@ const ResultsPage = {
 							<span
 								class="icon button off noselect emoji-width"
 								title="Close"
-								@click="closeDrawer"
+								@click="closeDrawerHandler"
 							>✕</span>
 						</span>
 					</div>
@@ -145,13 +145,13 @@ const ResultsPage = {
 								class="icon button off noselect"
 								id="copy-action"
 								:title="scriptState ? 'Copy Script' : 'Copy List'"
-								@click="copyListToClipboard"
+								@click="copyListToClipboardHandler"
 							><span class="monochrome">📋</span></div>
 							<div
 								class="icon button off noselect"
 								id="download-action"
 								:title="scriptState ? 'Download Script' : 'Download List'"
-								@click="downloadList"
+								@click="downloadListHandler"
 							><span class="monochrome">⏬</span></div>
 						</span>
 					</div>
@@ -159,7 +159,7 @@ const ResultsPage = {
 
 				<div id="file-list" class="textarea noselect" ref="textarea">
 					<div
-						v-for="(line, index) in scriptHeader"
+						v-for="(line, index) in fileListHeader"
 						:key="index"
 						class="line"
 					>
@@ -191,10 +191,10 @@ const ResultsPage = {
 										highlighted: highlightedCoords.get(cluster.ID)?.has(fileIndex) ?? false,
 										hovered: cluster.ID == hoveredCluster && fileIndex == hoveredFileIndex,
 									}"
-									@click.exact="highlightHandler(cluster.ID, fileIndex); selectHandler(cluster)"
-									@click.alt=scrollToCluster(cluster.ID)
-									@click.ctrl=thumbnailCtrlClickHandler(ifile)
-									@click.shift="highlightRange(cluster.ID, fileIndex)"
+									@click.exact="highlightHandler(cluster.ID, fileIndex); highlightEndHandler(cluster)"
+									@click.alt=scrollToClusterHandler(cluster.ID)
+									@click.ctrl=thumbnailCopyNameHandler(ifile)
+									@click.shift="highlightRangeHandler(cluster.ID, fileIndex)"
 									@mouseenter="hoverHandler(true, cluster.ID, fileIndex)"
 									@mouseleave ="hoverHandler(false, null, null)"
 								>
@@ -209,7 +209,7 @@ const ResultsPage = {
 					</template>
 
 					<div
-						v-for="(line, index) in scriptFooter"
+						v-for="(line, index) in fileListFooter"
 						:key="index"
 						class="line"
 					>
@@ -238,18 +238,18 @@ const ResultsPage = {
 	>
 		<template v-if="contextMenuClusterArg === -1">
 			<ul>
-				<li @click="highlightObvious">Select Obvious</li>
-				<li @click="highlightAll">Select All</li>
-				<li @click="highlightNone">Select None</li>
+				<li @click="highlightObviousHandler">Select Obvious</li>
+				<li @click="highlightAllHandler">Select All</li>
+				<li @click="highlightNoneHandler">Select None</li>
 				<li class="separator noselect" />
-				<li @click="collapseVisible">Collapse All</li>
-				<li @click="collapseNone">Expand All</li>
+				<li @click="collapseVisibleHandler">Collapse All</li>
+				<li @click="collapseNoneHandler">Expand All</li>
 			</ul>
 		</template>
 		<template v-else>
 			<ul>
 				<li @click="copyFilenameHandler">Copy File Name</li>
-				<li @click="selectSameFolderHandler">Select All Files in this Folder</li>
+				<li @click="highlightSameFolderHandler">Select All Files in this Folder</li>
 			</ul>
 		</template>
 	</div>
@@ -284,39 +284,86 @@ const ResultsPage = {
 	},
 
 	methods: {
-		reloadPage() {
-			location.reload()
-		},
+		/* Handle page events */
 
-		copyToClipboard(text) {
-			navigator.clipboard.writeText(text);
-			this.messageText = "Copied to clipboard!";
-			setTimeout(() => {
-				this.messageText = "";
-			}, 1000);
-		},
-
-		formatDate(d) {
-			return d.getFullYear() + "." + (d.getMonth()+1).toString().padStart(2, "0") + "." + d.getDate().toString().padStart(2, "0");
-		},
-
-		formatBytes(bytes, decimals = 2) {
-			if (bytes === 0) return "0 Bytes";
-
-			const k = 1024;
-			const dm = decimals < 0 ? 0 : decimals;
-			const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
-
-			const i = Math.floor(Math.log(bytes) / Math.log(k));
-			return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-		},
-
-		togglePause() {
+		togglePauseHandler() {
 			this.isPaused = !this.isPaused;
 		},
 
-		thumbnailCtrlClickHandler(ifile) {
-			this.copyToClipboard(ifile.file.name);
+		keyDownHandler(event) {
+			if (event.key === "Escape") {
+				if (this.showContextMenu) {
+					this.showContextMenu = false;
+				} else {
+					this.drawerOpen = false;
+				}
+			}
+		},
+
+		/* Handle page context menu events */
+
+		collapseVisibleHandler() {
+			for (const cluster of this.visibleClusters) {
+				this.collapsedClusters.add(cluster.ID);
+			}
+			this.showContextMenu = false;
+		},
+
+		collapseNoneHandler() {
+			this.autoCollapseState = "none";
+			this.collapsedClusters.clear();
+			this.showContextMenu = false;
+		},
+
+		/* Handle cluster events */
+
+		toggleCollapseHandler(clusterID) {
+			if (this.collapsedClusters.has(clusterID)) {
+				this.collapsedClusters.delete(clusterID);
+			} else {
+				this.collapsedClusters.add(clusterID);
+			}
+		},
+
+		autoCollapseClusters(clusters=this.visibleClusters) {
+			const state = this.autoCollapseState;
+			if (state == "none") {
+				return;
+			}
+			let filter = null;
+			if (state == "any") {
+				filter = cluster => {
+					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
+					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
+					return highCount > 0 && highCount < total;
+				}
+			} else if (state == "almost-all") {
+				filter = cluster => {
+					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
+					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
+					return highCount == total-1;
+				}
+			}
+			if (typeof clusters[Symbol.iterator] !== "function") {
+				clusters = [clusters];
+			}
+			for (const cluster of clusters) {
+				if (filter(cluster)) {
+					this.collapsedClusters.add(cluster.ID);
+				}
+			}
+		},
+
+		/* Handle image events */
+
+		hoverHandler(on, clusterID, fileIndex) {
+			if (on) {
+				this.hoveredCluster = clusterID;
+				this.hoveredFileIndex = fileIndex;
+			} else{
+				this.hoveredCluster = null;
+				this.hoveredFileIndex = null;
+			}
 		},
 
 		highlightHandler(clusterID, fileIndex) {
@@ -353,7 +400,71 @@ const ResultsPage = {
 			}
 		},
 
-		highlightRange(clusterID, fileIndex) {
+		highlightEndHandler(cluster) {
+			this.autoCollapseClusters(cluster);
+		},
+
+		openThumbnailContextMenuHandler(event, clusterID, fileIndex) {
+			this.contextMenuClusterArg = clusterID;
+			this.contextMenuFileArg = fileIndex;
+			this.mouseX = event.clientX;
+			this.mouseY = event.clientY;
+			this.showContextMenu = true;
+		},
+
+		thumbnailCopyNameHandler(ifile) {
+			this.copyToClipboard(ifile.file.name);
+		},
+
+		/* Handle image context menu events */
+
+		contextmenuHandler(event) {
+			event.preventDefault();
+			event.stopPropagation();
+			this.mouseX = event.clientX;
+			this.mouseY = event.clientY;
+			this.showContextMenu = true;
+		},
+
+		copyFilenameHandler() {
+			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
+			this.copyToClipboard(ifile.file.name);
+			this.showContextMenu = false;
+		},
+
+		highlightMultiple(filter, highlight=true) {
+			isFunction = typeof highlight === "function";
+			for (const cluster of this.visibleClusters) {
+				if (!this.highlightedCoords.has(cluster.ID)) {
+					this.highlightedCoords.set(cluster.ID, new Set());
+				}
+				if (!filter || filter(cluster)) {
+					const highlightedFileIndices = this.highlightedCoords.get(cluster.ID);
+					for (const [imageIndex, ifile] of cluster.ifiles.entries()) {
+						if (!filter || filter(cluster, imageIndex, ifile)) {
+							doHighlight = isFunction ? highlight(cluster, imageIndex, ifile) : highlight;
+							if (doHighlight) {
+								if (!highlightedFileIndices.has(imageIndex)) {
+									this.highCount += 1;
+									this.highSize += ifile.file.size;
+									highlightedFileIndices.add(imageIndex);
+								}
+							} else {
+								if (highlightedFileIndices.has(imageIndex)) {
+									this.highCount -= 1;
+									this.highSize -= ifile.file.size;
+									highlightedFileIndices.delete(imageIndex);
+								}
+							}
+						}
+					}
+				}
+			}
+			this.autoCollapseClusters();
+			this.showContextMenu = false;
+		},
+
+		highlightRangeHandler(clusterID, fileIndex) {
 			if (this.lastSelectedCluster === null || this.lastSelectedFileIndex === null) {
 					this.highlightHandler(clusterID, fileIndex);
 
@@ -394,141 +505,20 @@ const ResultsPage = {
 			}
 		},
 
-		hoverHandler(on, clusterID, fileIndex) {
-			if (on) {
-				this.hoveredCluster = clusterID;
-				this.hoveredFileIndex = fileIndex;
-			} else{
-				this.hoveredCluster = null;
-				this.hoveredFileIndex = null;
-			}
-		},
-
-		selectHandler(cluster) {
-			const state = this.autoCollapseState;
-			if (state == "none") {
-				return;
-			}
-			let filter = null;
-			if (state == "any") {
-				filter = cluster => {
-					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
-					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
-					return highCount > 0 && highCount < total;
-				}
-			} else if (state == "almost-all") {
-				filter = cluster => {
-					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
-					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
-					return highCount == total-1;
-				}
-			}
-			if (filter(cluster)) {
-				this.collapsedClusters.add(cluster.ID);
-			}
-		},
-
-		autoCollapseClusters() {
-			const state = this.autoCollapseState;
-			if (state == "none") {
-				return;
-			}
-			let filter = null;
-			if (state == "any") {
-				filter = cluster => {
-					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
-					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
-					return highCount > 0 && highCount < total;
-				}
-			} else if (state == "almost-all") {
-				filter = cluster => {
-					const highCount = this.highlightedCoords.get(cluster.ID)?.size ?? 0;
-					const total = this.$store.state.clusters[cluster.ID].ifiles.length;
-					return highCount == total-1;
-				}
-			}
-			for (const cluster of this.visibleClusters) {
-				if (filter(cluster)) {
-					this.collapsedClusters.add(cluster.ID);
-				}
-			}
-		},
-
-		toggleHandler(clusterID) {
-			if (this.collapsedClusters.has(clusterID)) {
-				this.collapsedClusters.delete(clusterID);
-			} else {
-				this.collapsedClusters.add(clusterID);
-			}
-		},
-
-		thumbnailRightClickHandler(event, clusterID, fileIndex) {
-			this.contextMenuClusterArg = clusterID;
-			this.contextMenuFileArg = fileIndex;
-			this.mouseX = event.clientX;
-			this.mouseY = event.clientY;
-			this.showContextMenu = true;
-		},
-
-		contextmenuHandler(event) {
-			event.preventDefault();
-			event.stopPropagation();
-			this.mouseX = event.clientX;
-			this.mouseY = event.clientY;
-			this.showContextMenu = true;
-		},
-
-		copyFilenameHandler() {
-			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
-			this.copyToClipboard(ifile.file.name);
+		highlightAllHandler() {
+			this.highlightMultiple(null, true);
 			this.showContextMenu = false;
 		},
 
-		selectSameFolderHandler() {
-			dirname = path => {
-				const parts = path.relpath.split("/");
-				parts.pop();
-				return parts.join("/");
-			}
-			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
-			const targetDirname = dirname(ifile)
-			this.highlightMultiple((cluster, fileIndex, f) => {
-				if (fileIndex === undefined) {
-					return true;
-				}
-				return dirname(f) == targetDirname;
-			});
+		highlightNoneHandler() {
+			this.highCount = 0;
+			this.highSize = 0;
+			this.highlightedCoords.clear();
+			//this.collapseNoneHandler();
 			this.showContextMenu = false;
 		},
 
-		keyDownHandler(event) {
-			if (event.key === "Escape") {
-				if (this.showContextMenu) {
-					this.showContextMenu = false;
-				} else {
-					this.drawerOpen = false;
-				}
-			}
-		},
-
-		drawerSelectAllHandler(event) {
-			const targetDiv = this.$refs.textarea;
-			const range = document.createRange();
-			range.selectNodeContents(targetDiv);
-			const selection = window.getSelection();
-			selection.removeAllRanges();
-			selection.addRange(range);
-		},
-
-		openDrawer() {
-			this.drawerOpen = true;
-		},
-
-		closeDrawer() {
-			this.drawerOpen = false;
-		},
-
-		highlightObvious() {
+		highlightObviousHandler() {
 			// selects files that match the following criteria:
 			// 1. the filename ends with " ?(\d)", " (copy)", or "_\d"
 			// 2. there is another file in the same folder that exists without any of these suffixes
@@ -554,62 +544,50 @@ const ResultsPage = {
 			this.showContextMenu = false;
 		},
 
-		highlightMultiple(filter, highlight=true) {
-			isFunction = typeof highlight === "function";
-			for (const cluster of this.visibleClusters) {
-				if (!this.highlightedCoords.has(cluster.ID)) {
-					this.highlightedCoords.set(cluster.ID, new Set());
-				}
-				if (!filter || filter(cluster)) {
-					const highlightedFileIndices = this.highlightedCoords.get(cluster.ID);
-					for (const [imageIndex, ifile] of cluster.ifiles.entries()) {
-						if (!filter || filter(cluster, imageIndex, ifile)) {
-							doHighlight = isFunction ? highlight(cluster, imageIndex, ifile) : highlight;
-							if (doHighlight) {
-								if (!highlightedFileIndices.has(imageIndex)) {
-									this.highCount += 1;
-									this.highSize += ifile.file.size;
-									highlightedFileIndices.add(imageIndex);
-								}
-							} else {
-								if (highlightedFileIndices.has(imageIndex)) {
-									this.highCount -= 1;
-									this.highSize -= ifile.file.size;
-									highlightedFileIndices.delete(imageIndex);
-								}
-							}
-						}
-					}
-				}
+		highlightSameFolderHandler() {
+			dirname = path => {
+				const parts = path.relpath.split("/");
+				parts.pop();
+				return parts.join("/");
 			}
-			this.autoCollapseClusters();
+			const ifile = this.$store.state.clusters[this.contextMenuClusterArg].ifiles[this.contextMenuFileArg];
+			const targetDirname = dirname(ifile)
+			this.highlightMultiple((cluster, fileIndex, f) => {
+				if (fileIndex === undefined) {
+					return true;
+				}
+				return dirname(f) == targetDirname;
+			});
 			this.showContextMenu = false;
 		},
 
-		highlightAll() {
-			this.highlightMultiple(null, true);
-			this.showContextMenu = false;
+		/* Handle drawer events */
+
+		openDrawerHandler() {
+			this.drawerOpen = true;
 		},
 
-		highlightNone() {
-			this.highCount = 0;
-			this.highSize = 0;
-			this.highlightedCoords.clear();
-			//this.collapseNone();
-			this.showContextMenu = false;
+		closeDrawerHandler() {
+			this.drawerOpen = false;
 		},
 
-		collapseVisible() {
-			for (const cluster of this.visibleClusters) {
-				this.collapsedClusters.add(cluster.ID);
-			}
-			this.showContextMenu = false;
+		scrollToClusterHandler(clusterID) {
+			const container = this.$refs.clusters;
+			const target = document.getElementsByClassName("cluster")[clusterID];
+
+			container.scrollTo({
+				top: target.offsetTop - container.offsetTop - 30,
+				behavior: "smooth"
+			});
 		},
 
-		collapseNone() {
-			this.autoCollapseState = "none";
-			this.collapsedClusters.clear();
-			this.showContextMenu = false;
+		drawerSelectAllHandler(event) {
+			const targetDiv = this.$refs.textarea;
+			const range = document.createRange();
+			range.selectNodeContents(targetDiv);
+			const selection = window.getSelection();
+			selection.removeAllRanges();
+			selection.addRange(range);
 		},
 
 		copyListToClipboardHandler() {
@@ -618,7 +596,7 @@ const ResultsPage = {
 			this.copyToClipboard(textContent);
 		},
 
-		downloadList() {
+		downloadListHandler() {
 			const onWindows = navigator.userAgent.toLowerCase().includes("win");
 			const textContent = this.$refs.textarea.innerText.replace(/(\r?\n){3,}/g, onWindows ? "\r\n\r\n" : "\n\n") + (onWindows ? "\r\n" : "\n");
 			const encoder = new TextEncoder();
@@ -642,6 +620,8 @@ const ResultsPage = {
 				}, 0);
 			}
 		},
+
+		/* Tests */
 
 		clusterIsVisible(cluster) {
 			if (this.clusterSpanState == "any") {
@@ -667,15 +647,7 @@ const ResultsPage = {
 			return this.collapsedClusters.has(cluster.ID)
 		},
 
-		scrollToCluster(clusterID) {
-			const container = this.$refs.clusters;
-			const target = document.getElementsByClassName("cluster")[clusterID];
-
-			container.scrollTo({
-				top: target.offsetTop - container.offsetTop - 30,
-				behavior: "smooth"
-			});
-		},
+		/* Helpers */
 
 		formatFileListLine(ifile) {
 			let path = ifile.relpath;
@@ -694,10 +666,37 @@ const ResultsPage = {
 			}
 			return path
 		},
+
+		formatBytes(bytes, decimals = 2) {
+			if (bytes === 0) return "0 Bytes";
+
+			const k = 1024;
+			const dm = decimals < 0 ? 0 : decimals;
+			const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
+
+			const i = Math.floor(Math.log(bytes) / Math.log(k));
+			return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+		},
+
+		formatDate(d) {
+			return d.getFullYear() + "." + (d.getMonth()+1).toString().padStart(2, "0") + "." + d.getDate().toString().padStart(2, "0");
+		},
+
+		copyToClipboard(text) {
+			navigator.clipboard.writeText(text);
+			this.messageText = "Copied to clipboard!";
+			setTimeout(() => {
+				this.messageText = "";
+			}, 1000);
+		},
+
+		reloadPage() {
+			location.reload()
+		},
 	},
 
 	computed: {
-		scriptHeader() {
+		fileListHeader() {
 			const text = [];
 			if (this.scriptState) {
 				if (this.onWindows) {
@@ -712,7 +711,7 @@ const ResultsPage = {
 			return text
 		},
 
-		scriptFooter() {
+		fileListFooter() {
 			const text = [];
 			if (this.scriptState) {
 				if (this.onWindows) {
