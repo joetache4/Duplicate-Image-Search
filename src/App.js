@@ -1,16 +1,35 @@
 const App = {
 
 	template: `
-<SetupPage   v-show="setupPageVisible"></SetupPage>
-<ResultsPage v-show="resultsPageVisible"></ResultsPage>
+<SetupPage   ref="setupPage"   v-show="page === 'setup'"></SetupPage>
+<ResultsPage ref="resultsPage" v-show="page !== 'setup'"></ResultsPage>
 `,
 
+	data() {
+		return {
+			page : "setup",
+		}
+	},
+
+	mounted() {
+		this.$refs.setupPage.$el.focus();
+	},
+
 	computed: {
-		setupPageVisible() {
-			return this.$store.state.searchStatus === "search_ready";
-		},
-		resultsPageVisible() {
-			return this.$store.state.searchStatus !== "search_ready";
-		},
+		searchStatus() {
+			return this.$store.state.searchStatus;
+		}
+	},
+
+	watch: {
+		searchStatus(oldVal, newVal) {
+			if (newVal === "search_ready") {
+				this.page = "setup";
+				this.$refs.setupPage.$el.focus();
+			} else {
+				this.page = "results";
+				this.$refs.resultsPage.$el.focus();
+			}
+		}
 	}
 }

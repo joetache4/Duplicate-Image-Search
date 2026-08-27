@@ -4,7 +4,8 @@ const ResultsPage = {
 <div
 	id="results-page"
 	tabindex="-1"
-	@keydown="keyDownHandler"
+	@keydown.escape="escapeHandler"
+	@keydown.ctrl.a.prevent="highlightAllHandler"
 > <!-- tabindex needed to receive keydown events -->
 
 	<div class="header title-header">
@@ -100,7 +101,6 @@ const ResultsPage = {
 				noselect: !drawerOpen,
 			}"
 			tabindex="-1"
-			@keydown.ctrl.a.prevent="drawerSelectAllHandler"
 		>
 			<div class="drawer">
 				<div class="panel-header">
@@ -290,13 +290,12 @@ const ResultsPage = {
 			this.isPaused = !this.isPaused;
 		},
 
-		keyDownHandler(event) {
-			if (event.key === "Escape") {
-				if (this.showContextMenu) {
-					this.showContextMenu = false;
-				} else {
-					this.drawerOpen = false;
-				}
+		escapeHandler(event) {
+			console.log("*")
+			if (this.showContextMenu) {
+				this.showContextMenu = false;
+			} else {
+				this.drawerOpen = false;
 			}
 		},
 
@@ -579,15 +578,6 @@ const ResultsPage = {
 				top: target.offsetTop - container.offsetTop - 30,
 				behavior: "smooth"
 			});
-		},
-
-		drawerSelectAllHandler(event) {
-			const targetDiv = this.$refs.textarea;
-			const range = document.createRange();
-			range.selectNodeContents(targetDiv);
-			const selection = window.getSelection();
-			selection.removeAllRanges();
-			selection.addRange(range);
 		},
 
 		copyListToClipboardHandler() {

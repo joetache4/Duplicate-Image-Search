@@ -804,6 +804,10 @@ u.filenameDiff {
 	z-index: 30;
 }
 
+.context-menu:focus {
+	outline: none;
+}
+
 .context-menu ul {
 	list-style: none;
 	padding: 5px 0;
