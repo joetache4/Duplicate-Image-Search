@@ -256,6 +256,13 @@ const ResultsPage = {
 </div>
 `,
 
+	mounted() {
+		this.$nextTick(() => {
+			window.scrollTo({ top: 0 });
+			this.$el.focus();
+		});
+	},
+
 	data() {
 		return {
 			onWindows : navigator.userAgent.toLowerCase().includes("win"),

@@ -1,76 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-<title>Duplicate Image Search</title>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="favicon.png"/>
-<link rel="icon" type="image/png" href="images/favicon.png">
-<link rel="stylesheet" type="text/css" href="css/fonts.css">
-<link rel="stylesheet" type="text/css" href="css/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.2.0/diff.min.js"></script>
-<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.js"></script>
-<script src="https://unpkg.com/vuex@4.0.0/dist/vuex.global.js"></script>
-<script src="src/scripts/ahash.js"></script>
-<script src="src/scripts/dhash.js"></script>
-<script src="src/scripts/path-sort.js"></script>
-<script src="src/scripts/unified-file-provider.js"></script>
-<script src="src/scripts/search.js"></script>
-<script src="src/scripts/signal.js"></script>
-<script src="src/scripts/image-file.js"></script>
-<script src="src/plugins/persistence.js"></script>
-<script src="src/components/Cluster.js"></script>
-<script src="src/components/Thumbnail.js"></script>
-<script src="src/components/ScrollToTop.js"></script>
-<script src="src/views/SetupPage.js"></script>
-<script src="src/views/ResultsPage.js"></script>
-<script src="src/config.js"></script>
-<script src="src/state.js"></script>
-<script src="src/App.js"></script>
-<script src="src/main.js"></script>
+	<title>Duplicate Image Search</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" href="favicon.png">
+	<link rel="icon" type="image/png" href="images/favicon.png">
+	<link rel="stylesheet" type="text/css" href="css/fonts.css">
+	<link rel="stylesheet" type="text/css" href="css/style.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.2.0/diff.min.js"></script>
+	<script src="https://unpkg.com/vue@3.5.13/dist/vue.global.js"></script>
+	<script src="https://unpkg.com/vuex@4.0.0/dist/vuex.global.js"></script>
+	<script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+	<script src="src/scripts/ahash.js"></script>
+	<script src="src/scripts/dhash.js"></script>
+	<script src="src/scripts/path-sort.js"></script>
+	<script src="src/scripts/unified-file-provider.js"></script>
+	<script src="src/scripts/search.js"></script>
+	<script src="src/scripts/signal.js"></script>
+	<script src="src/scripts/image-file.js"></script>
+	<script src="src/plugins/persistence.js"></script>
+	<script src="src/components/Cluster.js"></script>
+	<script src="src/components/Thumbnail.js"></script>
+	<script src="src/components/ScrollToTop.js"></script>
+	<script src="src/views/SetupPage.js"></script>
+	<script src="src/views/ResultsPage.js"></script>
+	<script src="src/config.js"></script>
+	<script src="src/state.js"></script>
 </head>
-
 <body id="app-main">
 
 	<script>
-	   const App = {
+		const routes = [
+			{ path: "/", component: SetupPage },
+			{ path: "/results", component: ResultsPage }
+		];
 
+		const router = VueRouter.createRouter({
+			history: VueRouter.createWebHashHistory(),
+			routes
+		});
+
+		const App = {
 			template: `
-		<SetupPage   ref="setupPage"   v-show="page === 'setup'"></SetupPage>
-		<ResultsPage ref="resultsPage" v-show="page !== 'setup'"></ResultsPage>
-		`,
-
-			data() {
-				return {
-					page : "setup",
-				}
-			},
-
-			mounted() {
-				this.$refs.setupPage.$el.focus();
-			},
-
-			computed: {
-				searchStatus() {
-					return this.$store.state.searchStatus;
-				}
-			},
-
+				<router-view v-slot="{ Component }">
+					<component :is="Component" ref="currentPage" />
+				</router-view>
+			`,
 			watch: {
-				searchStatus(oldVal, newVal) {
+				"$store.state.searchStatus"(newVal) {
 					if (newVal === "search_ready") {
-						this.page = "setup";
-						this.$refs.setupPage.$el.focus();
+						this.$router.push("/");
 					} else {
-						this.page = "results";
-						this.$refs.resultsPage.$el.focus();
+						this.$router.push("/results");
 					}
 				}
 			}
-		}
+		};
 
 		const app = Vue.createApp(App);
+
+		app.use(router);
 
 		app.component("SetupPage", SetupPage);
 		app.component("ResultsPage", ResultsPage);
@@ -83,10 +73,16 @@
 
 		app.use(store);
 
+		if (window.location.hash.includes("results")) {
+			store.commit("SET_SEARCH_STATE", "search_ready");
+			store.commit("RESET");
+			router.replace("/");
+		}
+
 		document.addEventListener("DOMContentLoaded", () => {
 			app.mount("#app-main");
 		});
 	</script>
-</body>
 
+</body>
 </html>
