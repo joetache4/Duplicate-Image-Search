@@ -32,6 +32,61 @@
 </head>
 
 <body id="app-main">
+
+	<script>
+	   const App = {
+
+			template: `
+		<SetupPage   ref="setupPage"   v-show="page === 'setup'"></SetupPage>
+		<ResultsPage ref="resultsPage" v-show="page !== 'setup'"></ResultsPage>
+		`,
+
+			data() {
+				return {
+					page : "setup",
+				}
+			},
+
+			mounted() {
+				this.$refs.setupPage.$el.focus();
+			},
+
+			computed: {
+				searchStatus() {
+					return this.$store.state.searchStatus;
+				}
+			},
+
+			watch: {
+				searchStatus(oldVal, newVal) {
+					if (newVal === "search_ready") {
+						this.page = "setup";
+						this.$refs.setupPage.$el.focus();
+					} else {
+						this.page = "results";
+						this.$refs.resultsPage.$el.focus();
+					}
+				}
+			}
+		}
+
+		const app = Vue.createApp(App);
+
+		app.component("SetupPage", SetupPage);
+		app.component("ResultsPage", ResultsPage);
+		app.component("Cluster", Cluster);
+		app.component("Thumbnail", Thumbnail);
+		app.component("ScrollToTop", ScrollToTop);
+
+		const { createStore } = Vuex;
+		const store = createStore(State);
+
+		app.use(store);
+
+		document.addEventListener("DOMContentLoaded", () => {
+			app.mount("#app-main");
+		});
+	</script>
 </body>
 
 </html>

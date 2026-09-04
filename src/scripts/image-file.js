@@ -2,6 +2,9 @@ class ImageFile {
 
 	static formats           = ["jpg", "jpeg", "png", "gif", "webp", "bmp"];
 	static ratioTolerancePct = 10;   // Image aspect ratios may differ by up to 10% before comparing
+	static maxFileSize       = 40*1024*1024;
+	static thumbnailQuality  = 0.6;
+	static thumbnailMaxDim   = 200;
 
 	constructor(file) {
 		this.file       = file;
@@ -26,7 +29,7 @@ class ImageFile {
 
 	isValid() {
 		if (this.valid === null) {
-			this.valid = ImageFile.formats.includes(this.type) && this.file.size <= Config.maxFileSize;
+			this.valid = ImageFile.formats.includes(this.type) && this.file.size <= ImageFile.maxFileSize;
 		}
 		return this.valid;
 	}
@@ -153,10 +156,10 @@ class ImageFile {
 		let resizeWidth, resizeHeight;
 		if (this.width && this.height) { // will not be known during an exact match scan
 			if (this.width >= this.height) {
-				resizeWidth = Config.thumbnailMaxDim;
+				resizeWidth = ImageFile.thumbnailMaxDim;
 				resizeHeight = Math.floor(this.height * resizeWidth / this.width);
 			} else {
-				resizeHeight = Config.thumbnailMaxDim;
+				resizeHeight = ImageFile.thumbnailMaxDim;
 				resizeWidth = Math.floor(this.width * resizeHeight / this.height);
 			}
 
@@ -189,10 +192,10 @@ class ImageFile {
 			this.height = bitmap.height;
 
 			if (bitmap.width >= bitmap.height) {
-				resizeWidth = Config.thumbnailMaxDim;
+				resizeWidth = ImageFile.thumbnailMaxDim;
 				resizeHeight = Math.floor(bitmap.height * resizeWidth / bitmap.width);
 			} else {
-				resizeHeight = Config.thumbnailMaxDim;
+				resizeHeight = ImageFile.thumbnailMaxDim;
 				resizeWidth = Math.floor(bitmap.width * resizeHeight / bitmap.height);
 			}
 
